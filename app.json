@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Zeladoria Urbana • Organic Civic Tech",
+    "slug": "zeladoria-urbana-iot",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#2E4036"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#2E4036"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

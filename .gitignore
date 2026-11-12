@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Environment & Credentials (AGENTS.md)
+.env
+.env.*
+credentials.json
+token.json
+.tmp/
+
+# OS & Logs
+.DS_Store
+Thumbs.db
+npm-debug.*
+yarn-debug.*
+yarn-error.*
