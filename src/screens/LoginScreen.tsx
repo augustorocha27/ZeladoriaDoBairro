@@ -10,8 +10,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { ActiveSectionTab } from '../components/FloatingIslandNavbar';
 import { useAuth } from '../contexts/AuthContext';
-import { useIoT } from '../contexts/IoTContext';
-import { useOccurrences } from '../contexts/OccurrencesContext';
 import { COLORS, FONTS, RADII, SHADOWS } from '../theme/theme';
 import { useResponsive } from '../theme/useResponsive';
 import { UserRole } from '../types';
@@ -37,8 +35,6 @@ const DEMO_CREDENTIALS = {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSelectTab }) => {
   const { loginAs } = useAuth();
-  const { occurrences } = useOccurrences();
-  const { pole, isAnomalyActive } = useIoT();
   const { isSmallPhone, pagePadding } = useResponsive();
 
   const [selectedRole, setSelectedRole] = useState<UserRole>('CITIZEN');
@@ -78,8 +74,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSelectTab }) => {
       );
     }
   };
-
-  const openCount = occurrences.filter((o) => o.status !== 'RESOLVIDA').length;
 
   return (
     <ScrollView
@@ -307,30 +301,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSelectTab }) => {
             </Text>
             <Ionicons name="arrow-forward" size={18} color={COLORS.cream} />
           </TouchableOpacity>
-        </View>
-
-        {/* Bottom Status Bar */}
-        <View style={styles.systemStatusBox}>
-          <View style={styles.statusLine}>
-            <View
-              style={[
-                styles.statusDot,
-                {
-                  backgroundColor: isAnomalyActive
-                    ? COLORS.clay
-                    : COLORS.telemetryGreen,
-                },
-              ]}
-            />
-            <Text style={styles.statusBoxTitle}>
-              Sistema Operacional • {occurrences.length} ocorrências salvas (
-              {openCount} em andamento)
-            </Text>
-          </View>
-          <Text style={styles.statusBoxSub}>
-            Poste Inteligente #{pole.poleId}: {pole.ambientLux} lx •
-            Persistência Local via AsyncStorage
-          </Text>
         </View>
       </View>
     </ScrollView>
