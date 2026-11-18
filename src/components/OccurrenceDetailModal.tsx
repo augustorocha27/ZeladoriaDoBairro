@@ -209,12 +209,12 @@ export const OccurrenceDetailModal: React.FC<OccurrenceDetailModalProps> = ({
             ) : (
               <View style={styles.citizenNoticeBox}>
                 <Ionicons
-                  name="information-circle-outline"
+                  name="shield-checkmark-outline"
                   size={18}
                   color={COLORS.moss}
                 />
                 <Text style={styles.citizenNoticeText}>
-                  Você está visualizando como <Text style={{ fontWeight: '700' }}>Cidadão</Text>. Para alterar o status desta ocorrência, alterne para o perfil <Text style={{ fontWeight: '700' }}>Agente</Text> no topo da tela.
+                  Chamado monitorado pela Central de Zeladoria. Acompanhe abaixo o histórico de atualizações realizadas pela equipe responsável.
                 </Text>
               </View>
             )}

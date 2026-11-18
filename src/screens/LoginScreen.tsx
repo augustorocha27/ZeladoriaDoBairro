@@ -1,407 +1,531 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
-  Animated,
-  ImageBackground,
-  Platform,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ActiveSectionTab } from '../components/FloatingIslandNavbar';
-import { ManifestoAndProtocolSection } from '../components/ManifestoAndProtocolSection';
-import { OperationalTriadAndFooter } from '../components/OperationalTriadAndFooter';
-import { PrecisionMicroUIDashboard } from '../components/PrecisionMicroUIDashboard';
 import { useAuth } from '../contexts/AuthContext';
 import { useIoT } from '../contexts/IoTContext';
 import { useOccurrences } from '../contexts/OccurrencesContext';
 import { COLORS, FONTS, RADII, SHADOWS } from '../theme/theme';
+import { useResponsive } from '../theme/useResponsive';
+import { UserRole } from '../types';
 
 interface LoginScreenProps {
   onSelectTab?: (tab: ActiveSectionTab) => void;
 }
 
-/**
- * Implements Prompt.Md Complete Digital Instrument Experience:
- * - B. HERO SECTION ("A Cidade é o Algoritmo." - 100dvh, moody forest, bottom-left third layout, staggered fade-up)
- * - C. FEATURES (PrecisionMicroUIDashboard - Diagnostic Shuffler, Telemetry Typewriter, Mock Cursor Scheduler)
- * - D. PHILOSOPHY (The Manifesto - Charcoal + organic texture comparison)
- * - E. PROTOCOL (Sticky Stacking Archive - Rotating Helix Gear, Laser Matrix Scan, Pulsing EKG)
- * - F. OPERATIONAL TRIAD & FOOTER (Three-tier deck with Moss/Clay middle pop + rounded-t-[4rem] Footer)
- */
+const DEMO_CREDENTIALS = {
+  CITIZEN: {
+    name: 'Clara Vasconcelos',
+    identifier: 'clara.moradora@bairro.com.br',
+    badge: 'CID-8842',
+    password: '123456',
+  },
+  AGENT: {
+    name: 'Eng. Marcos Silveira',
+    identifier: 'marcos.silveira@zeladoria.gov.br',
+    badge: 'AGT-0419',
+    password: '123456',
+  },
+};
+
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSelectTab }) => {
   const { loginAs } = useAuth();
   const { occurrences } = useOccurrences();
-  const { pole, isAnomalyActive, triggerNightFailureSimulation } = useIoT();
+  const { pole, isAnomalyActive } = useIoT();
+  const { isSmallPhone, pagePadding } = useResponsive();
 
-  // Staggered fade-up animation (Prompt.Md Section 2.B)
-  const fadeAnim1 = useRef(new Animated.Value(0)).current;
-  const fadeAnim2 = useRef(new Animated.Value(0)).current;
-  const fadeAnim3 = useRef(new Animated.Value(0)).current;
-  const translateY1 = useRef(new Animated.Value(24)).current;
-  const translateY2 = useRef(new Animated.Value(28)).current;
-  const translateY3 = useRef(new Animated.Value(32)).current;
+  const [selectedRole, setSelectedRole] = useState<UserRole>('CITIZEN');
+  const [nameInput, setNameInput] = useState(DEMO_CREDENTIALS.CITIZEN.name);
+  const [identifierInput, setIdentifierInput] = useState(
+    DEMO_CREDENTIALS.CITIZEN.identifier
+  );
+  const [passwordInput, setPasswordInput] = useState(
+    DEMO_CREDENTIALS.CITIZEN.password
+  );
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    Animated.stagger(160, [
-      Animated.parallel([
-        Animated.timing(fadeAnim1, {
-          toValue: 1,
-          duration: 650,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY1, {
-          toValue: 0,
-          duration: 650,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.parallel([
-        Animated.timing(fadeAnim2, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY2, {
-          toValue: 0,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.parallel([
-        Animated.timing(fadeAnim3, {
-          toValue: 1,
-          duration: 750,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY3, {
-          toValue: 0,
-          duration: 750,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-  }, [fadeAnim1, fadeAnim2, fadeAnim3, translateY1, translateY2, translateY3]);
-
-  const navigateTo = (tab: ActiveSectionTab) => {
-    if (onSelectTab) {
-      onSelectTab(tab);
-    }
+  const handleSelectRoleTab = (role: UserRole) => {
+    setSelectedRole(role);
+    setNameInput(DEMO_CREDENTIALS[role].name);
+    setIdentifierInput(DEMO_CREDENTIALS[role].identifier);
+    setPasswordInput(DEMO_CREDENTIALS[role].password);
+    setErrorMsg(null);
   };
 
-  const handleTriggerIoT = async () => {
-    await triggerNightFailureSimulation();
+  const handleFormLogin = async () => {
+    if (!identifierInput.trim() || !passwordInput.trim()) {
+      setErrorMsg('Preencha o login e a senha para entrar.');
+      return;
+    }
+
+    await loginAs(
+      selectedRole,
+      nameInput.trim() || DEMO_CREDENTIALS[selectedRole].name,
+      DEMO_CREDENTIALS[selectedRole].badge
+    );
+
+    if (onSelectTab) {
+      onSelectTab(
+        selectedRole === 'CITIZEN' ? 'CITIZEN_PORTAL' : 'AGENT_CONSOLE'
+      );
+    }
   };
 
   const openCount = occurrences.filter((o) => o.status !== 'RESOLVIDA').length;
 
   return (
-    <View style={styles.root}>
-      {/* =================================================================== */}
-      {/* B. HERO SECTION (Nature/City is the Algorithm - 100dvh height)      */}
-      {/* =================================================================== */}
-      <View style={styles.heroOuterPadding}>
-        <ImageBackground
-          source={{
-            uri: 'https://images.unsplash.com/photo-1470115636492-6d2b56f9146d?auto=format&fit=crop&w=1800&q=85',
-          }}
-          style={styles.heroViewportContainer}
-          imageStyle={styles.heroBackgroundImage}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingHorizontal: pagePadding },
+      ]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.centerStage}>
+        {/* App Header / Brand */}
+        <View style={styles.brandHeader}>
+          <View style={styles.logoBox}>
+            <Ionicons name="business-outline" size={26} color={COLORS.cream} />
+          </View>
+          <Text
+            style={[
+              styles.appTitle,
+              isSmallPhone && { fontSize: 22 },
+            ]}
+          >
+            Zeladoria do Bairro
+          </Text>
+          <Text style={styles.appSubtitle}>
+            Canal direto entre moradores, agentes da prefeitura e iluminação
+            pública inteligente.
+          </Text>
+        </View>
+
+        {/* Main Login Card */}
+        <View
+          style={[
+            styles.loginCard,
+            isSmallPhone && { padding: 16 },
+          ]}
         >
-          {/* Heavy Moss-to-Black Gradient Overlay */}
-          <View style={styles.heroGradientOverlay}>
-            {/* Top Telemetry Metadata Row (below Floating Island Navbar) */}
-            <View style={styles.heroTopSpacer}>
-              <View style={styles.clinicalTelemetryPill}>
-                <View
+          <Text style={styles.sectionLabel}>1. ESCOLHA SEU PERFIL DE ACESSO</Text>
+
+          {/* 2 Role Tabs */}
+          <View
+            style={[
+              styles.roleTabsRow,
+              isSmallPhone && { flexDirection: 'column' },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.roleTab,
+                selectedRole === 'CITIZEN' && styles.roleTabActiveMoss,
+              ]}
+              onPress={() => handleSelectRoleTab('CITIZEN')}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name="person"
+                size={18}
+                color={
+                  selectedRole === 'CITIZEN' ? COLORS.cream : COLORS.charcoal
+                }
+              />
+              <View style={{ flex: 1 }}>
+                <Text
                   style={[
-                    styles.telemetryPulseDot,
-                    {
-                      backgroundColor: isAnomalyActive
-                        ? COLORS.clay
-                        : COLORS.telemetryGreen,
+                    styles.roleTabTitle,
+                    selectedRole === 'CITIZEN' && { color: COLORS.cream },
+                  ]}
+                >
+                  Sou Morador
+                </Text>
+                <Text
+                  style={[
+                    styles.roleTabSub,
+                    selectedRole === 'CITIZEN' && {
+                      color: 'rgba(242,240,233,0.8)',
                     },
                   ]}
-                />
-                <Text style={styles.clinicalTelemetryText}>
-                  TELEMETRY ONLINE • NODE #{pole.poleId}: {pole.ambientLux} LX •{' '}
-                  {openCount} CHAMADOS ATIVOS
+                >
+                  Abrir e acompanhar
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
-            {/* Bottom-Left Third Layout (Prompt.Md Section 2.B) */}
-            <View style={styles.heroBottomLeftThird}>
-              <Animated.View
-                style={{
-                  opacity: fadeAnim1,
-                  transform: [{ translateY: translateY1 }],
-                }}
-              >
-                <Text style={styles.heroKickerMono}>
-                  HIGH-END ORGANIC CIVIC TECH // ZELADORIA & IoT
-                </Text>
-                <Text style={styles.heroTitleBoldSans}>
-                  A Cidade é o
-                </Text>
-                <Text style={styles.heroTitleMassiveSerif}>
-                  Algoritmo.
-                </Text>
-              </Animated.View>
-
-              <Animated.View
-                style={{
-                  opacity: fadeAnim2,
-                  transform: [{ translateY: translateY2 }],
-                }}
-              >
-                <Text style={styles.heroLeadParagraph}>
-                  Um instrumento digital de precisão que conecta moradores,
-                  engenharia pública e sensores ópticos de iluminação urbana em
-                  uma arquitetura de 3 camadas com persistência local em tempo
-                  real.
-                </Text>
-              </Animated.View>
-
-              {/* Magnetic CTA Buttons Row */}
-              <Animated.View
-                style={[
-                  styles.heroCtaRow,
-                  {
-                    opacity: fadeAnim3,
-                    transform: [{ translateY: translateY3 }],
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  style={styles.magneticPrimaryBtnClay}
-                  onPress={async () => {
-                    await loginAs('CITIZEN');
-                    navigateTo('CITIZEN_PORTAL');
-                  }}
-                  activeOpacity={0.86}
+            <TouchableOpacity
+              style={[
+                styles.roleTab,
+                selectedRole === 'AGENT' && styles.roleTabActiveMoss,
+              ]}
+              onPress={() => handleSelectRoleTab('AGENT')}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name="construct"
+                size={18}
+                color={
+                  selectedRole === 'AGENT' ? COLORS.cream : COLORS.charcoal
+                }
+              />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.roleTabTitle,
+                    selectedRole === 'AGENT' && { color: COLORS.cream },
+                  ]}
                 >
-                  <Ionicons name="person" size={16} color={COLORS.cream} />
-                  <Text style={styles.magneticPrimaryBtnText}>
-                    Entrar como Cidadão
-                  </Text>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={16}
-                    color={COLORS.cream}
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.magneticSecondaryBtnMoss}
-                  onPress={async () => {
-                    await loginAs('AGENT');
-                    navigateTo('AGENT_CONSOLE');
-                  }}
-                  activeOpacity={0.86}
+                  Sou Agente
+                </Text>
+                <Text
+                  style={[
+                    styles.roleTabSub,
+                    selectedRole === 'AGENT' && {
+                      color: 'rgba(242,240,233,0.8)',
+                    },
+                  ]}
                 >
-                  <Ionicons name="construct" size={16} color={COLORS.cream} />
-                  <Text style={styles.magneticPrimaryBtnText}>
-                    Painel do Agente ({openCount})
-                  </Text>
-                </TouchableOpacity>
+                  Atender chamados
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
 
-                <TouchableOpacity
-                  style={styles.magneticGhostBtn}
-                  onPress={() => navigateTo('IOT_LAB')}
-                  activeOpacity={0.86}
-                >
-                  <Ionicons
-                    name="hardware-chip-outline"
-                    size={16}
-                    color={COLORS.cream}
-                  />
-                  <Text style={styles.magneticGhostBtnText}>
-                    Simular Poste IoT #{pole.poleId}
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
+          {/* Role Context Explanation */}
+          <View style={styles.roleHintBox}>
+            <Ionicons
+              name="information-circle-outline"
+              size={16}
+              color={COLORS.moss}
+            />
+            <Text style={styles.roleHintText}>
+              {selectedRole === 'CITIZEN'
+                ? 'No perfil Cidadão você pode enviar fotos de buracos, lixo ou postes apagados e ver o status de cada chamado.'
+                : 'No perfil Agente você visualiza a fila de problemas do bairro (incluindo alertas do Poste Inteligente) e atualiza o andamento.'}
+            </Text>
+          </View>
+
+          {/* Login Form Inputs */}
+          <Text style={styles.sectionLabel}>2. CREDENCIAIS DE ACESSO</Text>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.inputLabel}>Nome de Exibição</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="person-outline"
+                size={16}
+                color={COLORS.charcoalMuted}
+              />
+              <TextInput
+                style={styles.textInput}
+                value={nameInput}
+                onChangeText={setNameInput}
+                placeholder="Digite seu nome"
+                placeholderTextColor={COLORS.charcoalMuted}
+              />
             </View>
           </View>
-        </ImageBackground>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.inputLabel}>
+              {selectedRole === 'CITIZEN'
+                ? 'E-mail ou CPF do Morador'
+                : 'E-mail Institucional ou Matrícula'}
+            </Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="mail-outline"
+                size={16}
+                color={COLORS.charcoalMuted}
+              />
+              <TextInput
+                style={styles.textInput}
+                value={identifierInput}
+                onChangeText={setIdentifierInput}
+                autoCapitalize="none"
+                placeholder="seu.email@exemplo.com"
+                placeholderTextColor={COLORS.charcoalMuted}
+              />
+            </View>
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.inputLabel}>Senha</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={16}
+                color={COLORS.charcoalMuted}
+              />
+              <TextInput
+                style={styles.textInput}
+                value={passwordInput}
+                onChangeText={setPasswordInput}
+                secureTextEntry={!showPassword}
+                placeholder="Digite sua senha"
+                placeholderTextColor={COLORS.charcoalMuted}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword((prev) => !prev)}
+                style={styles.eyeBtn}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={18}
+                  color={COLORS.charcoalMuted}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+
+          {/* Main Submit Button */}
+          <TouchableOpacity
+            style={[
+              styles.loginSubmitBtn,
+              selectedRole === 'AGENT' && { backgroundColor: COLORS.charcoal },
+            ]}
+            onPress={handleFormLogin}
+            activeOpacity={0.86}
+          >
+            <Text style={styles.loginSubmitText}>
+              {selectedRole === 'CITIZEN'
+                ? 'Entrar como Cidadão'
+                : 'Entrar no Painel do Agente'}
+            </Text>
+            <Ionicons name="arrow-forward" size={18} color={COLORS.cream} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom Status Bar */}
+        <View style={styles.systemStatusBox}>
+          <View style={styles.statusLine}>
+            <View
+              style={[
+                styles.statusDot,
+                {
+                  backgroundColor: isAnomalyActive
+                    ? COLORS.clay
+                    : COLORS.telemetryGreen,
+                },
+              ]}
+            />
+            <Text style={styles.statusBoxTitle}>
+              Sistema Operacional • {occurrences.length} ocorrências salvas (
+              {openCount} em andamento)
+            </Text>
+          </View>
+          <Text style={styles.statusBoxSub}>
+            Poste Inteligente #{pole.poleId}: {pole.ambientLux} lx •
+            Persistência Local via AsyncStorage
+          </Text>
+        </View>
       </View>
-
-      {/* =================================================================== */}
-      {/* C. FEATURES (THE PRECISION MICRO-UI DASHBOARD)                      */}
-      {/* =================================================================== */}
-      <PrecisionMicroUIDashboard onTriggerIoT={handleTriggerIoT} />
-
-      {/* =================================================================== */}
-      {/* D. PHILOSOPHY & E. PROTOCOL (STICKY STACKING ARCHIVE)               */}
-      {/* =================================================================== */}
-      <ManifestoAndProtocolSection
-        onSelectTab={navigateTo}
-        onTriggerIoTFailure={handleTriggerIoT}
-      />
-
-      {/* =================================================================== */}
-      {/* F. MEMBERSHIP / OPERATIONAL TRIAD & ROUNDED-T-[4REM] FOOTER         */}
-      {/* =================================================================== */}
-      <OperationalTriadAndFooter
-        onSelectTab={navigateTo}
-        onTriggerIoT={handleTriggerIoT}
-      />
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  root: {
+  container: {
     flex: 1,
     backgroundColor: COLORS.cream,
   },
-  heroOuterPadding: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 28,
   },
-  heroViewportContainer: {
+  centerStage: {
     width: '100%',
-    minHeight: Platform.OS === 'web' ? ('94vh' as any) : 640,
-    borderRadius: RADII.xxxl,
-    overflow: 'hidden',
-    ...SHADOWS.floatingIsland,
-  },
-  heroBackgroundImage: {
-    borderRadius: RADII.xxxl,
-  },
-  heroGradientOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(20, 30, 24, 0.76)',
-    paddingHorizontal: 32,
-    paddingTop: 88,
-    paddingBottom: 46,
-    justifyContent: 'space-between',
-    ...(Platform.OS === 'web'
-      ? ({
-          backgroundImage:
-            'linear-gradient(180deg, rgba(46,64,54,0.58) 0%, rgba(18,24,20,0.88) 68%, rgba(12,15,13,0.96) 100%)',
-        } as any)
-      : {}),
-  },
-  heroTopSpacer: {
-    width: '100%',
-    maxWidth: 1120,
+    maxWidth: 480,
     alignSelf: 'center',
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
   },
-  clinicalTelemetryPill: {
-    flexDirection: 'row',
+  brandHeader: {
     alignItems: 'center',
-    backgroundColor: 'rgba(26, 26, 26, 0.62)',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: RADII.pill,
+    marginBottom: 20,
+  },
+  logoBox: {
+    width: 50,
+    height: 50,
+    borderRadius: RADII.lg,
+    backgroundColor: COLORS.moss,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  appTitle: {
+    fontFamily: FONTS.sansBold,
+    fontSize: 26,
+    fontWeight: '800',
+    color: COLORS.charcoal,
+    letterSpacing: -0.5,
+    textAlign: 'center',
+  },
+  appSubtitle: {
+    fontFamily: FONTS.sansRegular,
+    fontSize: 13,
+    color: COLORS.charcoalMuted,
+    textAlign: 'center',
+    marginTop: 5,
+    lineHeight: 19,
+  },
+  loginCard: {
+    backgroundColor: COLORS.creamElevated,
     borderWidth: 1,
-    borderColor: 'rgba(242, 240, 233, 0.2)',
-    gap: 8,
+    borderColor: COLORS.creamBorder,
+    borderRadius: RADII.lg,
+    padding: 22,
+    ...SHADOWS.card,
   },
-  telemetryPulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  clinicalTelemetryText: {
+  sectionLabel: {
     fontFamily: FONTS.mono,
     fontSize: 10,
     fontWeight: '700',
-    color: COLORS.cream,
-    letterSpacing: 0.9,
-  },
-  heroBottomLeftThird: {
-    width: '100%',
-    maxWidth: 1120,
-    alignSelf: 'center',
-    marginTop: 'auto',
-    paddingTop: 48,
-  },
-  heroKickerMono: {
-    fontFamily: FONTS.mono,
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.clayLight,
-    letterSpacing: 1.5,
+    color: COLORS.moss,
+    letterSpacing: 0.6,
     marginBottom: 10,
   },
-  heroTitleBoldSans: {
-    fontFamily: FONTS.sansBold,
-    fontSize: Platform.OS === 'web' ? 62 : 42,
-    fontWeight: '800',
-    color: COLORS.cream,
-    letterSpacing: -1.8,
-    lineHeight: Platform.OS === 'web' ? 66 : 46,
-  },
-  heroTitleMassiveSerif: {
-    fontFamily: FONTS.serifItalic,
-    fontSize: Platform.OS === 'web' ? 86 : 56,
-    fontStyle: 'italic',
-    fontWeight: '600',
-    color: COLORS.cream,
-    lineHeight: Platform.OS === 'web' ? 88 : 58,
-    marginTop: -6,
-    marginBottom: 18,
-  },
-  heroLeadParagraph: {
-    fontFamily: FONTS.sansRegular,
-    fontSize: 16,
-    color: 'rgba(242, 240, 233, 0.84)',
-    maxWidth: 640,
-    lineHeight: 25,
-    marginBottom: 28,
-  },
-  heroCtaRow: {
+  roleTabsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
+    marginBottom: 12,
   },
-  magneticPrimaryBtnClay: {
+  roleTab: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.clay,
-    paddingVertical: 15,
-    paddingHorizontal: 22,
-    borderRadius: RADII.pill,
-    gap: 9,
-    ...SHADOWS.clayGlow,
-  },
-  magneticSecondaryBtnMoss: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.moss,
-    paddingVertical: 15,
-    paddingHorizontal: 22,
-    borderRadius: RADII.pill,
+    backgroundColor: COLORS.cream,
     borderWidth: 1,
-    borderColor: 'rgba(242, 240, 233, 0.25)',
-    gap: 9,
+    borderColor: COLORS.creamBorder,
+    borderRadius: RADII.md,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 10,
   },
-  magneticPrimaryBtnText: {
+  roleTabActiveMoss: {
+    backgroundColor: COLORS.moss,
+    borderColor: COLORS.mossDark,
+  },
+  roleTabTitle: {
     fontFamily: FONTS.sansBold,
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.cream,
+    color: COLORS.charcoal,
   },
-  magneticGhostBtn: {
+  roleTabSub: {
+    fontFamily: FONTS.sansRegular,
+    fontSize: 11,
+    color: COLORS.charcoalMuted,
+    marginTop: 1,
+  },
+  roleHintBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: COLORS.mossMuted,
+    borderRadius: RADII.md,
+    padding: 11,
+    gap: 8,
+    marginBottom: 18,
+  },
+  roleHintText: {
+    flex: 1,
+    fontFamily: FONTS.sansRegular,
+    fontSize: 12,
+    color: COLORS.mossDark,
+    lineHeight: 17,
+  },
+  fieldGroup: {
+    marginBottom: 13,
+  },
+  inputLabel: {
+    fontFamily: FONTS.sansBold,
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.charcoal,
+    marginBottom: 5,
+  },
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(242, 240, 233, 0.12)',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: RADII.pill,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: 'rgba(242, 240, 233, 0.24)',
+    borderColor: COLORS.creamBorder,
+    borderRadius: RADII.md,
+    paddingHorizontal: 12,
     gap: 8,
   },
-  magneticGhostBtnText: {
-    fontFamily: FONTS.mono,
+  textInput: {
+    flex: 1,
+    paddingVertical: 11,
+    fontFamily: FONTS.sansRegular,
+    fontSize: 14,
+    color: COLORS.charcoal,
+  },
+  eyeBtn: {
+    padding: 4,
+  },
+  errorText: {
+    fontFamily: FONTS.sansBold,
+    fontSize: 12,
+    color: COLORS.clay,
+    marginBottom: 10,
+  },
+  loginSubmitBtn: {
+    marginTop: 6,
+    backgroundColor: COLORS.clay,
+    borderRadius: RADII.md,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loginSubmitText: {
+    fontFamily: FONTS.sansBold,
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.cream,
+  },
+  systemStatusBox: {
+    marginTop: 16,
+    backgroundColor: COLORS.charcoal,
+    borderRadius: RADII.md,
+    padding: 14,
+  },
+  statusLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  statusBoxTitle: {
+    fontFamily: FONTS.sansBold,
     fontSize: 12,
     fontWeight: '700',
     color: COLORS.cream,
+    flex: 1,
+  },
+  statusBoxSub: {
+    fontFamily: FONTS.mono,
+    fontSize: 10,
+    color: 'rgba(242, 240, 233, 0.65)',
   },
 });

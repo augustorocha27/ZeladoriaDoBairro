@@ -1,16 +1,11 @@
-import React, { useState } from 'react';
-import {
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import {
   ActiveSectionTab,
   FloatingIslandNavbar,
 } from '../components/FloatingIslandNavbar';
 import { GlobalStylesAndNoise } from '../components/GlobalStylesAndNoise';
+import { useAuth } from '../contexts/AuthContext';
 import { AgentDashboardScreen } from '../screens/AgentDashboardScreen';
 import { CitizenHomeScreen } from '../screens/CitizenHomeScreen';
 import { IoTSimulatorScreen } from '../screens/IoTSimulatorScreen';
@@ -18,65 +13,93 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { NewOccurrenceScreen } from '../screens/NewOccurrenceScreen';
 import { COLORS } from '../theme/theme';
 
+/**
+ * Production Role-Isolated Navigation:
+ * - Unauthenticated (!user): renders ONLY LoginScreen.
+ * - Authenticated as CITIZEN: accesses ONLY CITIZEN_PORTAL and NEW_OCCURRENCE (IoT page is restricted to AGENT).
+ * - Authenticated as AGENT: accesses AGENT_CONSOLE and IOT_LAB.
+ * - Clicking "Sair" in the navbar clears `user`, returning immediately to LoginScreen.
+ */
 export const AppNavigator: React.FC = () => {
-  // Starts directly in the real Citizen Operational Portal; switchable via the Top Command Bar
+  const { user } = useAuth();
   const [activeTab, setActiveTab] =
     useState<ActiveSectionTab>('CITIZEN_PORTAL');
-  const [isScrolled, setIsScrolled] = useState(false);
 
-  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetY = e.nativeEvent.contentOffset.y;
-    if (offsetY > 40 && !isScrolled) {
-      setIsScrolled(true);
-    } else if (offsetY <= 40 && isScrolled) {
-      setIsScrolled(false);
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'CITIZEN') {
+      setActiveTab('CITIZEN_PORTAL');
+    } else if (user.role === 'AGENT') {
+      setActiveTab('AGENT_CONSOLE');
+    }
+  }, [user?.role]);
+
+  // Enforce strict role guards:
+  // - CITIZEN can only visit CITIZEN_PORTAL or NEW_OCCURRENCE
+  // - AGENT can only visit AGENT_CONSOLE or IOT_LAB
+  const handleSafeSelectTab = (nextTab: ActiveSectionTab) => {
+    if (!user) return;
+    if (user.role === 'CITIZEN') {
+      if (nextTab === 'CITIZEN_PORTAL' || nextTab === 'NEW_OCCURRENCE') {
+        setActiveTab(nextTab);
+      } else {
+        setActiveTab('CITIZEN_PORTAL');
+      }
+      return;
+    }
+
+    if (user.role === 'AGENT') {
+      if (nextTab === 'AGENT_CONSOLE' || nextTab === 'IOT_LAB') {
+        setActiveTab(nextTab);
+      } else {
+        setActiveTab('AGENT_CONSOLE');
+      }
     }
   };
 
+  if (!user) {
+    return (
+      <View style={styles.rootContainer}>
+        <GlobalStylesAndNoise />
+        <LoginScreen />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.rootContainer}>
-      {/* Global CSS Noise Overlay (0.05 SVG Turbulence) & Google Fonts */}
       <GlobalStylesAndNoise />
 
-      {/* Architectural Top Command Header */}
       <FloatingIslandNavbar
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        isScrolled={isScrolled}
+        onSelectTab={handleSafeSelectTab}
       />
 
-      {/* Main Active Workspace */}
       <View style={styles.workspaceStage}>
-        {activeTab === 'CITIZEN_PORTAL' && (
-          <CitizenHomeScreen
-            onNavigateNewOccurrence={() => setActiveTab('NEW_OCCURRENCE')}
-            onNavigateIoTSimulator={() => setActiveTab('IOT_LAB')}
-          />
+        {user.role === 'CITIZEN' && (
+          <>
+            {activeTab === 'NEW_OCCURRENCE' ? (
+              <NewOccurrenceScreen
+                onSuccessNavigateBack={() => setActiveTab('CITIZEN_PORTAL')}
+              />
+            ) : (
+              <CitizenHomeScreen
+                onNavigateNewOccurrence={() => setActiveTab('NEW_OCCURRENCE')}
+              />
+            )}
+          </>
         )}
 
-        {activeTab === 'NEW_OCCURRENCE' && (
-          <NewOccurrenceScreen
-            onSuccessNavigateBack={() => setActiveTab('CITIZEN_PORTAL')}
-          />
-        )}
-
-        {activeTab === 'AGENT_CONSOLE' && (
-          <AgentDashboardScreen
-            onNavigateIoTSimulator={() => setActiveTab('IOT_LAB')}
-          />
-        )}
-
-        {activeTab === 'IOT_LAB' && <IoTSimulatorScreen />}
-
-        {activeTab === 'INSTRUMENT_HOME' && (
-          <ScrollView
-            style={{ flex: 1 }}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            showsVerticalScrollIndicator={false}
-          >
-            <LoginScreen onSelectTab={setActiveTab} />
-          </ScrollView>
+        {user.role === 'AGENT' && (
+          <>
+            {activeTab === 'IOT_LAB' ? (
+              <IoTSimulatorScreen />
+            ) : (
+              <AgentDashboardScreen
+                onNavigateIoTSimulator={() => setActiveTab('IOT_LAB')}
+              />
+            )}
+          </>
         )}
       </View>
     </View>

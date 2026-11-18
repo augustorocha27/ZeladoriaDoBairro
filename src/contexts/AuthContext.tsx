@@ -2,7 +2,6 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
 } from 'react';
 import { MOCK_USERS } from '../data/mockData';
@@ -12,7 +11,11 @@ import { UserProfile, UserRole } from '../types';
 interface AuthContextData {
   user: UserProfile | null;
   isLoadingAuth: boolean;
-  loginAs: (role: UserRole) => Promise<void>;
+  loginAs: (
+    role: UserRole,
+    customName?: string,
+    customBadge?: string
+  ) => Promise<void>;
   switchRole: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -22,24 +25,34 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  // Always start unauthenticated (null) so the app opens directly on the Login Screen
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isLoadingAuth] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const savedUser = await storageService.getActiveUser();
-      if (savedUser) {
-        setUser(savedUser);
-      }
-      setIsLoadingAuth(false);
-    })();
-  }, []);
+  const loginAs = useCallback(
+    async (role: UserRole, customName?: string, customBadge?: string) => {
+      const baseProfile = MOCK_USERS[role];
+      const trimmedName = customName?.trim();
+      const initials = trimmedName
+        ? trimmedName
+            .split(' ')
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase() || '')
+            .join('')
+        : baseProfile.avatarInitials;
 
-  const loginAs = useCallback(async (role: UserRole) => {
-    const profile = MOCK_USERS[role];
-    setUser(profile);
-    await storageService.saveActiveUserRole(role);
-  }, []);
+      const profile: UserProfile = {
+        ...baseProfile,
+        name: trimmedName || baseProfile.name,
+        badgeCode: customBadge?.trim() || baseProfile.badgeCode,
+        avatarInitials: initials || baseProfile.avatarInitials,
+      };
+
+      setUser(profile);
+      await storageService.saveActiveUserRole(role);
+    },
+    []
+  );
 
   const switchRole = useCallback(async () => {
     const nextRole: UserRole = user?.role === 'AGENT' ? 'CITIZEN' : 'AGENT';
