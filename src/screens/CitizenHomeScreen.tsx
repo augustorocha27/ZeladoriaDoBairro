@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -66,7 +65,7 @@ export const CitizenHomeScreen: React.FC<CitizenHomeScreenProps> = () => {
   const { isMobile, isSmallPhone, pagePadding } = useResponsive();
 
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(true);
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<
     string | null
   >(null);
@@ -86,7 +85,9 @@ export const CitizenHomeScreen: React.FC<CitizenHomeScreenProps> = () => {
   const [photoUri, setPhotoUri] = useState(
     CATEGORIES.BURACO_VIA.defaultPhotoUri
   );
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastCreatedOccurrence, setLastCreatedOccurrence] =
+    useState<Occurrence | null>(null);
 
   const filteredOccurrences = useMemo(() => {
     switch (activeFilter) {
@@ -119,7 +120,7 @@ export const CitizenHomeScreen: React.FC<CitizenHomeScreenProps> = () => {
     setTitle(QUICK_TEMPLATES[cat].title);
     setDescription(QUICK_TEMPLATES[cat].description);
     setIsFormOpen(true);
-    setSuccessMessage(null);
+    setLastCreatedOccurrence(null);
   };
 
   const handleSelectLocation = (idx: number) => {
@@ -135,43 +136,46 @@ export const CitizenHomeScreen: React.FC<CitizenHomeScreenProps> = () => {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [16, 10],
-        quality: 0.8,
+        quality: 0.7,
       });
       if (!res.canceled && res.assets[0]?.uri) {
         setPhotoUri(res.assets[0].uri);
       }
     } catch {
-      Alert.alert(
-        'Modo Simulador',
-        'Mantendo a foto de exemplo selecionada para a categoria.'
-      );
+      setPhotoUri(CATEGORIES[selectedCategory].defaultPhotoUri);
     }
   };
 
   const handleSubmitOccurrence = async () => {
-    if (!title.trim() || !address.trim()) {
-      Alert.alert(
-        'Atenção',
-        'Por favor, informe o que aconteceu e o endereço da rua.'
-      );
-      return;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      const finalTitle =
+        title.trim() || QUICK_TEMPLATES[selectedCategory].title;
+      const finalDescription =
+        description.trim() || QUICK_TEMPLATES[selectedCategory].description;
+      const finalAddress =
+        address.trim() || PRESET_LOCATIONS[selectedLocIdx].address;
+      const finalReference =
+        reference.trim() || PRESET_LOCATIONS[selectedLocIdx].reference;
+
+      const created = await addCitizenOccurrence({
+        title: finalTitle,
+        description: finalDescription,
+        category: selectedCategory,
+        address: finalAddress,
+        reference: finalReference,
+        coordinates,
+        photoUri,
+      });
+
+      setActiveFilter('ALL');
+      setIsFormOpen(false);
+      setLastCreatedOccurrence(created);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const created = await addCitizenOccurrence({
-      title,
-      description,
-      category: selectedCategory,
-      address,
-      reference,
-      coordinates,
-      photoUri,
-    });
-
-    setIsFormOpen(false);
-    setSuccessMessage(
-      `Chamado #${created.protocol} enviado com sucesso! Acompanhe o andamento na lista abaixo.`
-    );
-    setTimeout(() => setSuccessMessage(null), 6000);
   };
 
   return (
@@ -222,24 +226,24 @@ export const CitizenHomeScreen: React.FC<CitizenHomeScreenProps> = () => {
                 activeOpacity={0.85}
               >
                 <Ionicons
-                  name={isFormOpen ? 'close' : 'add-circle-outline'}
+                  name={isFormOpen ? 'chevron-up' : 'add-circle-outline'}
                   size={18}
                   color={COLORS.cream}
                 />
                 <Text style={styles.mainActionBtnText}>
-                  {isFormOpen ? 'Fechar Formulário' : 'Abrir Novo Chamado'}
+                  {isFormOpen ? 'Ocultar Formulário' : '+ Novo Chamado'}
                 </Text>
               </TouchableOpacity>
             </View>
 
             <Text style={styles.quickPromptTitle}>
-              Qual problema você encontrou no bairro hoje? Toque para relatar:
+              Qual problema você encontrou no bairro hoje? Escolha o tipo:
             </Text>
 
-            {/* 5 Quick Category Shortcuts (Adaptive 2-col on mobile, 5-col on desktop) */}
+            {/* 5 Quick Category Shortcuts */}
             <View style={styles.quickCategoriesRow}>
               {CATEGORY_LIST.map((cat) => {
-                const isSelected = isFormOpen && selectedCategory === cat.id;
+                const isSelected = selectedCategory === cat.id;
                 return (
                   <TouchableOpacity
                     key={cat.id}
@@ -273,19 +277,38 @@ export const CitizenHomeScreen: React.FC<CitizenHomeScreenProps> = () => {
             </View>
           </View>
 
-          {/* Success Toast Feedback */}
-          {successMessage && (
+          {/* Success Toast Feedback when a new occurrence is created */}
+          {lastCreatedOccurrence && (
             <View style={styles.successBanner}>
-              <Ionicons
-                name="checkmark-circle"
-                size={20}
-                color={COLORS.cream}
-              />
-              <Text style={styles.successBannerText}>{successMessage}</Text>
+              <View style={styles.successBannerLeft}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={22}
+                  color={COLORS.cream}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.successBannerTitle}>
+                    Chamado #{lastCreatedOccurrence.protocol} registrado com
+                    sucesso!
+                  </Text>
+                  <Text style={styles.successBannerSub}>
+                    “{lastCreatedOccurrence.title}” já está na lista abaixo e na
+                    fila do Agente.
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.successBannerBtn}
+                onPress={() =>
+                  setSelectedOccurrenceId(lastCreatedOccurrence.id)
+                }
+              >
+                <Text style={styles.successBannerBtnText}>Ver Chamado</Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* 2. Collapsible Simple 3-Step Report Form */}
+          {/* 2. Simple 3-Step Report Form */}
           {isFormOpen && (
             <View
               style={[
@@ -295,7 +318,8 @@ export const CitizenHomeScreen: React.FC<CitizenHomeScreenProps> = () => {
             >
               <View style={styles.formHeaderRow}>
                 <Text style={styles.formTitle}>
-                  Relatar: {CATEGORIES[selectedCategory].shortLabel}
+                  Registrar Novo Chamado:{' '}
+                  {CATEGORIES[selectedCategory].shortLabel}
                 </Text>
                 <Text style={styles.formStepBadge}>Rápido • 3 Passos</Text>
               </View>
@@ -411,6 +435,7 @@ export const CitizenHomeScreen: React.FC<CitizenHomeScreenProps> = () => {
               <TouchableOpacity
                 style={styles.submitBtn}
                 onPress={handleSubmitOccurrence}
+                disabled={isSubmitting}
                 activeOpacity={0.86}
               >
                 <Ionicons
@@ -419,7 +444,9 @@ export const CitizenHomeScreen: React.FC<CitizenHomeScreenProps> = () => {
                   color={COLORS.cream}
                 />
                 <Text style={styles.submitBtnText}>
-                  Enviar Chamado para a Prefeitura
+                  {isSubmitting
+                    ? 'Registrando Chamado...'
+                    : 'Registrar Novo Chamado'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -543,7 +570,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.creamBorder,
     borderRadius: RADII.lg,
     padding: 20,
-    marginBottom: 18,
+    marginBottom: 16,
     ...SHADOWS.card,
   },
   welcomeTopRow: {
@@ -575,7 +602,7 @@ const styles = StyleSheet.create({
   mainActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.clay,
+    backgroundColor: COLORS.moss,
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderRadius: RADII.md,
@@ -626,19 +653,45 @@ const styles = StyleSheet.create({
   },
   successBanner: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: COLORS.statusResolved,
     padding: 14,
     borderRadius: RADII.md,
-    marginBottom: 14,
-    gap: 10,
+    marginBottom: 16,
+    gap: 12,
   },
-  successBannerText: {
+  successBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    minWidth: 220,
+  },
+  successBannerTitle: {
     fontFamily: FONTS.sansBold,
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.cream,
+  },
+  successBannerSub: {
+    fontFamily: FONTS.sansRegular,
+    fontSize: 12,
+    color: 'rgba(242, 240, 233, 0.9)',
+    marginTop: 2,
+  },
+  successBannerBtn: {
+    backgroundColor: COLORS.charcoal,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: RADII.sm,
+  },
+  successBannerBtnText: {
+    fontFamily: FONTS.sansBold,
+    fontSize: 12,
     fontWeight: '700',
     color: COLORS.cream,
-    flex: 1,
   },
   formCard: {
     backgroundColor: COLORS.white,
@@ -783,7 +836,7 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     marginTop: 18,
-    backgroundColor: COLORS.moss,
+    backgroundColor: COLORS.clay,
     borderRadius: RADII.md,
     paddingVertical: 14,
     flexDirection: 'row',

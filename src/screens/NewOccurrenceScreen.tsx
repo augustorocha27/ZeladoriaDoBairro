@@ -142,26 +142,32 @@ export const NewOccurrenceScreen: React.FC<NewOccurrenceScreenProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!title.trim() || !customAddress.trim()) {
-      Alert.alert(
-        'Campos obrigatórios',
-        'Informe pelo menos o título do problema e a localização.'
-      );
-      return;
-    }
-
+    if (isSubmitting) return;
     setIsSubmitting(true);
-    await addCitizenOccurrence({
-      title,
-      description,
-      category: selectedCategory,
-      address: customAddress,
-      reference: customReference,
-      coordinates,
-      photoUri,
-    });
-    setIsSubmitting(false);
-    onSuccessNavigateBack();
+
+    try {
+      const finalTitle =
+        title.trim() || QUICK_TEMPLATES[selectedCategory].title;
+      const finalDescription =
+        description.trim() || QUICK_TEMPLATES[selectedCategory].description;
+      const finalAddress =
+        customAddress.trim() || PRESET_LOCATIONS[selectedPresetIdx].address;
+      const finalReference =
+        customReference.trim() || PRESET_LOCATIONS[selectedPresetIdx].reference;
+
+      await addCitizenOccurrence({
+        title: finalTitle,
+        description: finalDescription,
+        category: selectedCategory,
+        address: finalAddress,
+        reference: finalReference,
+        coordinates,
+        photoUri,
+      });
+      onSuccessNavigateBack();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
