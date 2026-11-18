@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { STATUS_META } from '../data/mockData';
 import { useIoT } from '../contexts/IoTContext';
 import { COLORS, FONTS, RADII, SHADOWS } from '../theme/theme';
+import { useResponsive } from '../theme/useResponsive';
 
 const LUX_PRESETS = [
   { label: 'Sol Pleno', lux: 680, icon: 'sunny' },
@@ -31,323 +32,378 @@ export const IoTSimulatorScreen: React.FC = () => {
     triggerNightFailureSimulation,
     restoreNormalPoleOperation,
   } = useIoT();
+  const { isMobile, isSmallPhone, pagePadding } = useResponsive();
 
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingHorizontal: pagePadding },
+      ]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Visual Smart Streetlight Instrument Header */}
-      <View
-        style={[
-          styles.poleStageCard,
-          isDark ? styles.poleStageNight : styles.poleStageDay,
-        ]}
-      >
-        {/* Top Status Bar */}
-        <View style={styles.stageTopBar}>
-          <View style={styles.nodePill}>
-            <Ionicons name="hardware-chip" size={13} color={COLORS.cream} />
-            <Text style={styles.nodePillText}>NODE #{pole.poleId}</Text>
+      <View style={styles.centerColumn}>
+        {/* Visual Smart Streetlight Instrument Header */}
+        <View
+          style={[
+            styles.poleStageCard,
+            isSmallPhone && { padding: 14 },
+            isDark ? styles.poleStageNight : styles.poleStageDay,
+          ]}
+        >
+          {/* Top Status Bar */}
+          <View style={styles.stageTopBar}>
+            <View style={styles.nodePill}>
+              <Ionicons name="hardware-chip" size={13} color={COLORS.cream} />
+              <Text style={styles.nodePillText}>NODE #{pole.poleId}</Text>
+            </View>
+
+            <View
+              style={[
+                styles.conditionPill,
+                isAnomalyActive
+                  ? { backgroundColor: COLORS.clay }
+                  : pole.isLightEmitting
+                  ? { backgroundColor: COLORS.telemetryGreen }
+                  : { backgroundColor: 'rgba(242, 240, 233, 0.2)' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.conditionPillText,
+                  pole.isLightEmitting &&
+                    !isAnomalyActive && { color: COLORS.charcoal },
+                ]}
+              >
+                {isAnomalyActive
+                  ? 'FALHA CRÍTICA: ESCURO + APAGADO'
+                  : pole.isLightEmitting
+                  ? 'NOITE: LUMINÁRIA ACESA (NOMINAL)'
+                  : 'DIA: FOTOCÉLULA EM STANDBY'}
+              </Text>
+            </View>
           </View>
+
+          {/* Visual Pole & Real-time Sensor Readout (Side-by-side on tablet/desktop, stacked on small phone) */}
+          <View
+            style={[
+              styles.visualArena,
+              isSmallPhone && { flexDirection: 'column', alignItems: 'stretch' },
+            ]}
+          >
+            <View
+              style={[
+                styles.poleGraphicsBox,
+                isSmallPhone && { width: '100%', height: 130 },
+              ]}
+            >
+              <View
+                style={[
+                  styles.lampHead,
+                  pole.isLightEmitting && styles.lampHeadLit,
+                  !pole.isLampHardwareOk && styles.lampHeadFault,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    pole.isLightEmitting
+                      ? 'bulb'
+                      : !pole.isLampHardwareOk
+                      ? 'flash-off'
+                      : 'bulb-outline'
+                  }
+                  size={28}
+                  color={
+                    pole.isLightEmitting
+                      ? '#FFF3B0'
+                      : !pole.isLampHardwareOk
+                      ? COLORS.clayLight
+                      : COLORS.cream
+                  }
+                />
+              </View>
+              {pole.isLightEmitting && <View style={styles.lightCone} />}
+              <View style={styles.poleMast} />
+            </View>
+
+            {/* Real-time Sensor Readout Panel */}
+            <View style={styles.sensorReadoutBox}>
+              <Text style={styles.sensorReadoutTitle}>
+                TELEMETRIA EM TEMPO REAL
+              </Text>
+              <View style={styles.readoutItem}>
+                <Text style={styles.readoutLabel}>FOTOCÉLULA (LUX)</Text>
+                <Text style={styles.readoutValue}>
+                  {pole.ambientLux} lx{' '}
+                  <Text style={styles.readoutHint}>
+                    ({isDark ? '< 25 lx ESCURO' : '≥ 25 lx CLARO'})
+                  </Text>
+                </Text>
+              </View>
+
+              <View style={styles.readoutItem}>
+                <Text style={styles.readoutLabel}>CIRCUITO LED</Text>
+                <Text
+                  style={[
+                    styles.readoutValue,
+                    !pole.isLampHardwareOk && { color: COLORS.clayLight },
+                  ]}
+                >
+                  {pole.isLampHardwareOk
+                    ? 'OPERANTE (OK)'
+                    : 'QUEIMADO / APAGADO'}
+                </Text>
+              </View>
+
+              <View style={styles.readoutItem}>
+                <Text style={styles.readoutLabel}>POTÊNCIA ATIVA</Text>
+                <Text style={styles.readoutValue}>
+                  {pole.powerDrawWatts} W @ {pole.voltageV} V
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={styles.poleAddressText}>
+            <Ionicons name="location" size={12} color={COLORS.clayLight} />{' '}
+            {pole.address} ({pole.coordinates})
+          </Text>
+        </View>
+
+        {/* 1-CLICK DEMO SCENARIO BUTTONS */}
+        <View
+          style={[
+            styles.quickScenarioCard,
+            isSmallPhone && { padding: 14 },
+          ]}
+        >
+          <Text style={styles.sectionKicker}>
+            SIMULAÇÃO RÁPIDO DE ENGENHARIA (1 CLIQUE)
+          </Text>
+          <Text style={styles.sectionTitle}>Regra de Negócio IoT</Text>
+          <Text style={styles.sectionDesc}>
+            Quando o sensor detecta que está{' '}
+            <Text style={{ fontWeight: '700' }}>escuro (&lt; 25 lx)</Text> e o{' '}
+            <Text style={{ fontWeight: '700' }}>poste está apagado</Text>, o
+            próprio sistema abre uma ocorrência automática no AsyncStorage.
+          </Text>
 
           <View
             style={[
-              styles.conditionPill,
-              isAnomalyActive
-                ? { backgroundColor: COLORS.clay }
-                : pole.isLightEmitting
-                ? { backgroundColor: COLORS.telemetryGreen }
-                : { backgroundColor: 'rgba(242, 240, 233, 0.2)' },
+              styles.scenarioBtnRow,
+              !isMobile && { flexDirection: 'row' },
             ]}
           >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.conditionPillText,
-                pole.isLightEmitting &&
-                  !isAnomalyActive && { color: COLORS.charcoal },
+                styles.triggerFaultBtn,
+                !isMobile && { flex: 1.4 },
               ]}
+              onPress={triggerNightFailureSimulation}
+              activeOpacity={0.86}
             >
-              {isAnomalyActive
-                ? 'FALHA CRÍTICA: ESCURO + APAGADO'
-                : pole.isLightEmitting
-                ? 'NOITE: LUMINÁRIA ACESA (NOMINAL)'
-                : 'DIA: FOTOCÉLULA EM STANDBY'}
-            </Text>
-          </View>
-        </View>
+              <Ionicons name="thunderstorm" size={18} color={COLORS.cream} />
+              <Text style={styles.triggerFaultBtnText}>
+                Simular Noite + Poste Apagado (Gerar Alerta)
+              </Text>
+            </TouchableOpacity>
 
-        {/* Visual Pole & Light Cone Illustration */}
-        <View style={styles.visualArena}>
-          <View style={styles.poleGraphicsBox}>
-            <View
+            <TouchableOpacity
               style={[
-                styles.lampHead,
-                pole.isLightEmitting && styles.lampHeadLit,
-                !pole.isLampHardwareOk && styles.lampHeadFault,
+                styles.restoreBtn,
+                !isMobile && { flex: 1 },
               ]}
+              onPress={restoreNormalPoleOperation}
+              activeOpacity={0.86}
             >
-              <Ionicons
-                name={
-                  pole.isLightEmitting
-                    ? 'bulb'
-                    : !pole.isLampHardwareOk
-                    ? 'flash-off'
-                    : 'bulb-outline'
-                }
-                size={28}
-                color={
-                  pole.isLightEmitting
-                    ? '#FFF3B0'
-                    : !pole.isLampHardwareOk
-                    ? COLORS.clayLight
-                    : COLORS.cream
-                }
-              />
-            </View>
-            {pole.isLightEmitting && <View style={styles.lightCone} />}
-            <View style={styles.poleMast} />
-          </View>
-
-          {/* Real-time Sensor Readout Panel */}
-          <View style={styles.sensorReadoutBox}>
-            <Text style={styles.sensorReadoutTitle}>
-              TELEMETRIA EM TEMPO REAL
-            </Text>
-            <View style={styles.readoutItem}>
-              <Text style={styles.readoutLabel}>FOTOCÉLULA (LUX)</Text>
-              <Text style={styles.readoutValue}>
-                {pole.ambientLux} lx{' '}
-                <Text style={styles.readoutHint}>
-                  ({isDark ? '< 25 lx ESCURO' : '≥ 25 lx CLARO'})
-                </Text>
-              </Text>
-            </View>
-
-            <View style={styles.readoutItem}>
-              <Text style={styles.readoutLabel}>CIRCUITO LED</Text>
-              <Text
-                style={[
-                  styles.readoutValue,
-                  !pole.isLampHardwareOk && { color: COLORS.clayLight },
-                ]}
-              >
-                {pole.isLampHardwareOk
-                  ? 'OPERANTE (OK)'
-                  : 'QUEIMADO / APAGADO'}
-              </Text>
-            </View>
-
-            <View style={styles.readoutItem}>
-              <Text style={styles.readoutLabel}>POTÊNCIA ATIVA</Text>
-              <Text style={styles.readoutValue}>
-                {pole.powerDrawWatts} W @ {pole.voltageV} V
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <Text style={styles.poleAddressText}>
-          <Ionicons name="location" size={12} color={COLORS.clayLight} />{' '}
-          {pole.address} ({pole.coordinates})
-        </Text>
-      </View>
-
-      {/* 1-CLICK DEMO SCENARIO BUTTONS */}
-      <View style={styles.quickScenarioCard}>
-        <Text style={styles.sectionKicker}>
-          SIMULAÇÃO RÁPIDA DE ENGENHARIA (1 CLIQUE)
-        </Text>
-        <Text style={styles.sectionTitle}>Regra de Negócio IoT</Text>
-        <Text style={styles.sectionDesc}>
-          Quando o sensor detecta que está <Text style={{ fontWeight: '700' }}>escuro (&lt; 25 lx)</Text> e o{' '}
-          <Text style={{ fontWeight: '700' }}>poste está apagado</Text>, o próprio sistema abre uma ocorrência
-          automática no AsyncStorage.
-        </Text>
-
-        <View style={styles.scenarioBtnRow}>
-          <TouchableOpacity
-            style={styles.triggerFaultBtn}
-            onPress={triggerNightFailureSimulation}
-            activeOpacity={0.86}
-          >
-            <Ionicons name="thunderstorm" size={18} color={COLORS.cream} />
-            <Text style={styles.triggerFaultBtnText}>
-              Simular Noite + Poste Apagado (Gerar Alerta)
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.restoreBtn}
-            onPress={restoreNormalPoleOperation}
-            activeOpacity={0.86}
-          >
-            <Ionicons name="checkmark-circle" size={16} color={COLORS.moss} />
-            <Text style={styles.restoreBtnText}>Restaurar Lâmpada OK</Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeIoTOccurrence && (
-          <View style={styles.activeAutoTicketBox}>
-            <View style={styles.activeAutoTicketHeader}>
               <Ionicons
                 name="checkmark-circle"
                 size={16}
-                color={COLORS.telemetryGreen}
+                color={COLORS.moss}
               />
-              <Text style={styles.activeAutoTicketProtocol}>
-                OCORRÊNCIA AUTOMÁTICA ATIVA: #{activeIoTOccurrence.protocol}
+              <Text style={styles.restoreBtnText}>Restaurar Lâmpada OK</Text>
+            </TouchableOpacity>
+          </View>
+
+          {activeIoTOccurrence && (
+            <View style={styles.activeAutoTicketBox}>
+              <View style={styles.activeAutoTicketHeader}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={16}
+                  color={COLORS.telemetryGreen}
+                />
+                <Text style={styles.activeAutoTicketProtocol}>
+                  OCORRÊNCIA AUTOMÁTICA ATIVA: #{activeIoTOccurrence.protocol}
+                </Text>
+              </View>
+              <Text style={styles.activeAutoTicketTitle}>
+                {activeIoTOccurrence.title}
+              </Text>
+              <Text style={styles.activeAutoTicketStatus}>
+                Status na Fila:{' '}
+                <Text style={{ fontWeight: '700', color: COLORS.clayLight }}>
+                  {STATUS_META[activeIoTOccurrence.status].label.toUpperCase()}
+                </Text>
               </Text>
             </View>
-            <Text style={styles.activeAutoTicketTitle}>
-              {activeIoTOccurrence.title}
-            </Text>
-            <Text style={styles.activeAutoTicketStatus}>
-              Status na Fila:{' '}
-              <Text style={{ fontWeight: '700', color: COLORS.clayLight }}>
-                {STATUS_META[activeIoTOccurrence.status].label.toUpperCase()}
-              </Text>
-            </Text>
-          </View>
-        )}
-      </View>
+          )}
+        </View>
 
-      {/* MANUAL HARDWARE & SENSOR CONTROLS */}
-      <View style={styles.manualControlsCard}>
-        <Text style={styles.sectionKicker}>CONTROLES MANUAIS DO SENSOR</Text>
-        <Text style={styles.controlLabel}>
-          1. Luminosidade Ambiente (Fotocélula LDR): {pole.ambientLux} lx
-        </Text>
+        {/* MANUAL HARDWARE & SENSOR CONTROLS */}
+        <View
+          style={[
+            styles.manualControlsCard,
+            isSmallPhone && { padding: 14 },
+          ]}
+        >
+          <Text style={styles.sectionKicker}>CONTROLES MANUAIS DO SENSOR</Text>
+          <Text style={styles.controlLabel}>
+            1. Luminosidade Ambiente (Fotocélula LDR): {pole.ambientLux} lx
+          </Text>
 
-        <View style={styles.presetsGrid}>
-          {LUX_PRESETS.map((preset) => {
-            const selected = Math.abs(pole.ambientLux - preset.lux) < 12;
-            return (
-              <TouchableOpacity
-                key={preset.label}
-                style={[
-                  styles.presetChip,
-                  selected && styles.presetChipSelected,
-                ]}
-                onPress={() => setAmbientLux(preset.lux)}
-              >
-                <Ionicons
-                  name={preset.icon as any}
-                  size={14}
-                  color={selected ? COLORS.cream : COLORS.moss}
-                />
-                <Text
+          <View style={styles.presetsGrid}>
+            {LUX_PRESETS.map((preset) => {
+              const selected = Math.abs(pole.ambientLux - preset.lux) < 12;
+              return (
+                <TouchableOpacity
+                  key={preset.label}
                   style={[
-                    styles.presetChipLabel,
-                    selected && { color: COLORS.cream },
+                    styles.presetChip,
+                    isSmallPhone && { width: '48%', flexGrow: 1 },
+                    selected && styles.presetChipSelected,
                   ]}
+                  onPress={() => setAmbientLux(preset.lux)}
                 >
-                  {preset.label} ({preset.lux} lx)
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Fine Lux Stepper */}
-        <View style={styles.stepperRow}>
-          <TouchableOpacity
-            style={styles.stepBtn}
-            onPress={() => setAmbientLux(pole.ambientLux - 15)}
-          >
-            <Text style={styles.stepBtnText}>- 15 lx (Mais Escuro)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.stepBtn}
-            onPress={() => setAmbientLux(pole.ambientLux + 15)}
-          >
-            <Text style={styles.stepBtnText}>+ 15 lx (Mais Claro)</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Hardware Lamp Toggle */}
-        <Text style={[styles.controlLabel, { marginTop: 16 }]}>
-          2. Estado Físico da Luminária LED
-        </Text>
-        <View style={styles.hardwareToggleRow}>
-          <TouchableOpacity
-            style={[
-              styles.hwOption,
-              pole.isLampHardwareOk && styles.hwOptionOkActive,
-            ]}
-            onPress={() => setLampHardwareStatus(true)}
-          >
-            <Ionicons
-              name="bulb"
-              size={18}
-              color={pole.isLampHardwareOk ? COLORS.cream : COLORS.moss}
-            />
-            <Text
-              style={[
-                styles.hwOptionText,
-                pole.isLampHardwareOk && { color: COLORS.cream },
-              ]}
-            >
-              Lâmpada Funcionando
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.hwOption,
-              !pole.isLampHardwareOk && styles.hwOptionFaultActive,
-            ]}
-            onPress={() => setLampHardwareStatus(false)}
-          >
-            <Ionicons
-              name="warning"
-              size={18}
-              color={!pole.isLampHardwareOk ? COLORS.cream : COLORS.clay}
-            />
-            <Text
-              style={[
-                styles.hwOptionText,
-                !pole.isLampHardwareOk && { color: COLORS.cream },
-              ]}
-            >
-              Poste Apagado / Queimado
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* NEURAL / TELEMETRY STREAM (Prompt.Md Section 2.C Card 2) */}
-      <View style={styles.telemetryConsoleCard}>
-        <View style={styles.consoleHeader}>
-          <View style={styles.consoleDotRow}>
-            <View style={styles.liveClayDot} />
-            <Text style={styles.consoleTitle}>
-              LIVE TELEMETRY STREAM • SERIAL MONITOR
-            </Text>
+                  <Ionicons
+                    name={preset.icon as any}
+                    size={14}
+                    color={selected ? COLORS.cream : COLORS.moss}
+                  />
+                  <Text
+                    style={[
+                      styles.presetChipLabel,
+                      selected && { color: COLORS.cream },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {preset.label} ({preset.lux} lx)
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-          <Text style={styles.consoleBaud}>115200 BAUD</Text>
+
+          {/* Fine Lux Stepper */}
+          <View style={styles.stepperRow}>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              onPress={() => setAmbientLux(pole.ambientLux - 15)}
+            >
+              <Text style={styles.stepBtnText}>- 15 lx (Mais Escuro)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              onPress={() => setAmbientLux(pole.ambientLux + 15)}
+            >
+              <Text style={styles.stepBtnText}>+ 15 lx (Mais Claro)</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Hardware Lamp Toggle */}
+          <Text style={[styles.controlLabel, { marginTop: 16 }]}>
+            2. Estado Físico da Luminária LED
+          </Text>
+          <View
+            style={[
+              styles.hardwareToggleRow,
+              isSmallPhone && { flexDirection: 'column' },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.hwOption,
+                pole.isLampHardwareOk && styles.hwOptionOkActive,
+              ]}
+              onPress={() => setLampHardwareStatus(true)}
+            >
+              <Ionicons
+                name="bulb"
+                size={18}
+                color={pole.isLampHardwareOk ? COLORS.cream : COLORS.moss}
+              />
+              <Text
+                style={[
+                  styles.hwOptionText,
+                  pole.isLampHardwareOk && { color: COLORS.cream },
+                ]}
+              >
+                Lâmpada Funcionando
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.hwOption,
+                !pole.isLampHardwareOk && styles.hwOptionFaultActive,
+              ]}
+              onPress={() => setLampHardwareStatus(false)}
+            >
+              <Ionicons
+                name="warning"
+                size={18}
+                color={!pole.isLampHardwareOk ? COLORS.cream : COLORS.clay}
+              />
+              <Text
+                style={[
+                  styles.hwOptionText,
+                  !pole.isLampHardwareOk && { color: COLORS.cream },
+                ]}
+              >
+                Poste Apagado / Queimado
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {telemetryLogs.map((log, index) => (
-          <View key={log.id} style={styles.logLine}>
-            <Text style={styles.logTimestamp}>[{log.timestamp}]</Text>
-            <Text
-              style={[
-                styles.logMessage,
-                log.level === 'CRITICAL' && {
-                  color: COLORS.clayLight,
-                  fontWeight: '700',
-                },
-                log.level === 'SUCCESS' && { color: COLORS.telemetryGreen },
-                log.level === 'WARN' && { color: COLORS.telemetryWarning },
-              ]}
-            >
-              {log.message}
-              {index === 0 ? ' ▋' : ''}
-            </Text>
+        {/* LIVE TELEMETRY STREAM */}
+        <View
+          style={[
+            styles.telemetryConsoleCard,
+            isSmallPhone && { padding: 14 },
+          ]}
+        >
+          <View style={styles.consoleHeader}>
+            <View style={styles.consoleDotRow}>
+              <View style={styles.liveClayDot} />
+              <Text style={styles.consoleTitle}>
+                LIVE TELEMETRY STREAM • SERIAL MONITOR
+              </Text>
+            </View>
+            <Text style={styles.consoleBaud}>115200 BAUD</Text>
           </View>
-        ))}
+
+          {telemetryLogs.map((log, index) => (
+            <View key={log.id} style={styles.logLine}>
+              <Text style={styles.logTimestamp}>[{log.timestamp}]</Text>
+              <Text
+                style={[
+                  styles.logMessage,
+                  log.level === 'CRITICAL' && {
+                    color: COLORS.clayLight,
+                    fontWeight: '700',
+                  },
+                  log.level === 'SUCCESS' && { color: COLORS.telemetryGreen },
+                  log.level === 'WARN' && { color: COLORS.telemetryWarning },
+                ]}
+              >
+                {log.message}
+                {index === 0 ? ' ▋' : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
     </ScrollView>
   );
@@ -359,11 +415,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cream,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 120,
+    paddingVertical: 16,
+    paddingBottom: 64,
+  },
+  centerColumn: {
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
   },
   poleStageCard: {
-    borderRadius: RADII.xxxl,
+    borderRadius: RADII.lg,
     padding: 20,
     marginBottom: 16,
     ...SHADOWS.floatingIsland,
@@ -390,7 +451,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(242, 240, 233, 0.14)',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: RADII.pill,
+    borderRadius: RADII.sm,
     gap: 5,
   },
   nodePillText: {
@@ -402,7 +463,7 @@ const styles = StyleSheet.create({
   conditionPill: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: RADII.pill,
+    borderRadius: RADII.sm,
   },
   conditionPillText: {
     fontFamily: FONTS.mono,
@@ -418,10 +479,10 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   poleGraphicsBox: {
-    width: 105,
+    width: 115,
     height: 155,
     backgroundColor: 'rgba(26, 26, 26, 0.45)',
-    borderRadius: RADII.xl,
+    borderRadius: RADII.md,
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingTop: 16,
@@ -467,7 +528,7 @@ const styles = StyleSheet.create({
   sensorReadoutBox: {
     flex: 1,
     backgroundColor: 'rgba(26, 26, 26, 0.55)',
-    borderRadius: RADII.xl,
+    borderRadius: RADII.md,
     padding: 14,
     borderWidth: 1,
     borderColor: 'rgba(242, 240, 233, 0.12)',
@@ -505,7 +566,7 @@ const styles = StyleSheet.create({
   },
   quickScenarioCard: {
     backgroundColor: COLORS.creamElevated,
-    borderRadius: RADII.xxl,
+    borderRadius: RADII.lg,
     padding: 18,
     borderWidth: 1,
     borderColor: COLORS.creamBorder,
@@ -544,9 +605,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.clay,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: RADII.pill,
+    borderRadius: RADII.md,
     gap: 8,
-    ...SHADOWS.clayGlow,
   },
   triggerFaultBtnText: {
     fontFamily: FONTS.sansBold,
@@ -559,9 +619,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.mossMuted,
-    paddingVertical: 11,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: RADII.pill,
+    borderRadius: RADII.md,
     gap: 6,
   },
   restoreBtnText: {
@@ -573,7 +633,7 @@ const styles = StyleSheet.create({
   activeAutoTicketBox: {
     marginTop: 14,
     backgroundColor: COLORS.charcoal,
-    borderRadius: RADII.lg,
+    borderRadius: RADII.md,
     padding: 14,
   },
   activeAutoTicketHeader: {
@@ -602,7 +662,7 @@ const styles = StyleSheet.create({
   },
   manualControlsCard: {
     backgroundColor: COLORS.creamElevated,
-    borderRadius: RADII.xxl,
+    borderRadius: RADII.lg,
     padding: 18,
     borderWidth: 1,
     borderColor: COLORS.creamBorder,
@@ -629,7 +689,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.creamSubtle,
     paddingHorizontal: 11,
     paddingVertical: 8,
-    borderRadius: RADII.pill,
+    borderRadius: RADII.sm,
     gap: 5,
   },
   presetChipSelected: {
@@ -651,7 +711,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.creamBorder,
     paddingVertical: 9,
-    borderRadius: RADII.md,
+    borderRadius: RADII.sm,
     alignItems: 'center',
   },
   stepBtnText: {
@@ -672,7 +732,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.creamSubtle,
     paddingVertical: 12,
     paddingHorizontal: 10,
-    borderRadius: RADII.lg,
+    borderRadius: RADII.md,
     gap: 6,
   },
   hwOptionOkActive: {
@@ -689,13 +749,15 @@ const styles = StyleSheet.create({
   },
   telemetryConsoleCard: {
     backgroundColor: COLORS.charcoal,
-    borderRadius: RADII.xxl,
+    borderRadius: RADII.lg,
     padding: 18,
   },
   consoleHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
     paddingBottom: 10,
     marginBottom: 10,
     borderBottomWidth: 1,
@@ -709,7 +771,7 @@ const styles = StyleSheet.create({
   liveClayDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 2,
     backgroundColor: COLORS.clay,
   },
   consoleTitle: {

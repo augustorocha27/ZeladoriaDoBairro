@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CATEGORIES, PRESET_LOCATIONS } from '../data/mockData';
 import { useOccurrences } from '../contexts/OccurrencesContext';
 import { COLORS, FONTS, RADII, SHADOWS } from '../theme/theme';
+import { useResponsive } from '../theme/useResponsive';
 import { OccurrenceCategory } from '../types';
 
 interface NewOccurrenceScreenProps {
@@ -57,6 +58,7 @@ export const NewOccurrenceScreen: React.FC<NewOccurrenceScreenProps> = ({
   onSuccessNavigateBack,
 }) => {
   const { addCitizenOccurrence } = useOccurrences();
+  const { isMobile, isSmallPhone, pagePadding } = useResponsive();
 
   const [selectedCategory, setSelectedCategory] =
     useState<OccurrenceCategory>('BURACO_VIA');
@@ -165,212 +167,226 @@ export const NewOccurrenceScreen: React.FC<NewOccurrenceScreenProps> = ({
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingHorizontal: pagePadding },
+      ]}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
-      {/* Header */}
-      <View style={styles.headerBox}>
-        <Text style={styles.kicker}>PROTOCOLO DE CAMPO • CIDADÃO</Text>
-        <Text style={styles.headerTitle}>
-          Reportar{' '}
-          <Text style={styles.headerTitleItalic}>Ocorrência Urbana</Text>
-        </Text>
-        <Text style={styles.headerSub}>
-          Selecione a categoria, anexe uma foto e confirme o local. O chamado é
-          persistido no AsyncStorage e enviado imediatamente ao painel do Agente.
-        </Text>
-      </View>
-
-      {/* Step 1: Category Selector */}
-      <View style={styles.stepSection}>
-        <Text style={styles.stepLabel}>1. TIPO DE PROBLEMA URBANO</Text>
-        <View style={styles.categoryGrid}>
-          {CATEGORY_LIST.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.categoryCard,
-                  isSelected && styles.categoryCardActive,
-                ]}
-                onPress={() => handleSelectCategory(cat.id)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.categoryCardTop}>
-                  <Text
-                    style={[
-                      styles.categoryCode,
-                      isSelected && { color: COLORS.clayLight },
-                    ]}
-                  >
-                    [{cat.code}]
-                  </Text>
-                  <Ionicons
-                    name={cat.iconName as any}
-                    size={18}
-                    color={isSelected ? COLORS.cream : COLORS.moss}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.categoryName,
-                    isSelected && { color: COLORS.cream },
-                  ]}
-                >
-                  {cat.shortLabel}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Step 2: Photo Evidence */}
-      <View style={styles.stepSection}>
-        <Text style={styles.stepLabel}>2. EVIDÊNCIA FOTOGRÁFICA</Text>
-        <View style={styles.photoCard}>
-          <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-          <View style={styles.photoActionsRow}>
-            <TouchableOpacity
-              style={styles.photoActionBtn}
-              onPress={handleTakePhoto}
-            >
-              <Ionicons name="camera-outline" size={16} color={COLORS.moss} />
-              <Text style={styles.photoActionText}>Câmera</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.photoActionBtn}
-              onPress={handlePickFromGallery}
-            >
-              <Ionicons name="images-outline" size={16} color={COLORS.moss} />
-              <Text style={styles.photoActionText}>Galeria</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.photoActionBtn}
-              onPress={() =>
-                setPhotoUri(CATEGORIES[selectedCategory].defaultPhotoUri)
-              }
-            >
-              <Ionicons name="sparkles-outline" size={16} color={COLORS.clay} />
-              <Text style={[styles.photoActionText, { color: COLORS.clay }]}>
-                Foto Padrão
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      {/* Step 3: Location & GPS */}
-      <View style={styles.stepSection}>
-        <Text style={styles.stepLabel}>3. LOCALIZAÇÃO & GEORREFERÊNCIA</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.locationPresetsRow}
+      <View style={styles.centerColumn}>
+        {/* Header */}
+        <View
+          style={[
+            styles.headerBox,
+            isSmallPhone && { padding: 16 },
+          ]}
         >
-          {PRESET_LOCATIONS.map((loc, idx) => {
-            const active = selectedPresetIdx === idx;
-            return (
-              <TouchableOpacity
-                key={loc.address}
-                style={[
-                  styles.locPresetChip,
-                  active && styles.locPresetChipActive,
-                ]}
-                onPress={() => handleSelectLocationPreset(idx)}
-              >
-                <Ionicons
-                  name="navigate-circle-outline"
-                  size={14}
-                  color={active ? COLORS.cream : COLORS.moss}
-                />
-                <Text
-                  style={[
-                    styles.locPresetText,
-                    active && { color: COLORS.cream },
-                  ]}
-                >
-                  {loc.address.split('—')[0].trim()}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Endereço do Ocorrido</Text>
-          <TextInput
-            style={styles.textInput}
-            value={customAddress}
-            onChangeText={setCustomAddress}
-            placeholder="Ex: Rua das Figueiras, 240"
-            placeholderTextColor={COLORS.charcoalMuted}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Ponto de Referência</Text>
-          <TextInput
-            style={styles.textInput}
-            value={customReference}
-            onChangeText={setCustomReference}
-            placeholder="Ex: Próximo à praça ou esquina"
-            placeholderTextColor={COLORS.charcoalMuted}
-          />
-        </View>
-
-        <View style={styles.gpsStrip}>
-          <Ionicons name="locate" size={15} color={COLORS.telemetryGreen} />
-          <Text style={styles.gpsStripText}>
-            TELEMETRIA GPS SIMULADA: {coordinates}
+          <Text style={styles.kicker}>CANAL DO MORADOR</Text>
+          <Text
+            style={[
+              styles.headerTitle,
+              isSmallPhone && { fontSize: 20 },
+            ]}
+          >
+            Abrir Nova Ocorrência
+          </Text>
+          <Text style={styles.headerSub}>
+            Escolha o tipo de problema, confirme o endereço da rua e anexe uma
+            foto para enviar à prefeitura.
           </Text>
         </View>
-      </View>
 
-      {/* Step 4: Details */}
-      <View style={styles.stepSection}>
-        <Text style={styles.stepLabel}>4. DESCRIÇÃO DA OCORRÊNCIA</Text>
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Título Resumido</Text>
-          <TextInput
-            style={styles.textInput}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Descreva brevemente o problema"
-            placeholderTextColor={COLORS.charcoalMuted}
-          />
+        {/* Step 1: Category Selector */}
+        <View style={styles.stepSection}>
+          <Text style={styles.stepLabel}>1. QUAL É O PROBLEMA?</Text>
+          <View style={styles.categoryGrid}>
+            {CATEGORY_LIST.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.categoryCard,
+                    isSmallPhone
+                      ? { width: '100%' }
+                      : isMobile
+                      ? { width: '48%', flexGrow: 1 }
+                      : { width: '31%', flexGrow: 1 },
+                    isSelected && styles.categoryCardActive,
+                  ]}
+                  onPress={() => handleSelectCategory(cat.id)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons
+                    name={cat.iconName as any}
+                    size={20}
+                    color={isSelected ? COLORS.cream : COLORS.moss}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryName,
+                      isSelected && { color: COLORS.cream },
+                    ]}
+                  >
+                    {cat.shortLabel}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Observações para o Agente</Text>
-          <TextInput
-            style={[styles.textInput, styles.textArea]}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            placeholder="Informe detalhes que ajudem a equipe de manutenção..."
-            placeholderTextColor={COLORS.charcoalMuted}
-          />
-        </View>
-      </View>
+        {/* Step 2: Photo Evidence */}
+        <View style={styles.stepSection}>
+          <Text style={styles.stepLabel}>2. FOTO DO PROBLEMA</Text>
+          <View style={styles.photoCard}>
+            <Image
+              source={{ uri: photoUri }}
+              style={[
+                styles.photoPreview,
+                isSmallPhone && { height: 145 },
+              ]}
+            />
+            <View
+              style={[
+                styles.photoActionsRow,
+                isSmallPhone && { flexDirection: 'column' },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.photoActionBtn}
+                onPress={handleTakePhoto}
+              >
+                <Ionicons name="camera-outline" size={16} color={COLORS.moss} />
+                <Text style={styles.photoActionText}>Câmera</Text>
+              </TouchableOpacity>
 
-      {/* Submit CTA */}
-      <TouchableOpacity
-        style={styles.submitButton}
-        onPress={handleSubmit}
-        disabled={isSubmitting}
-        activeOpacity={0.86}
-      >
-        <Ionicons name="paper-plane" size={18} color={COLORS.cream} />
-        <Text style={styles.submitButtonText}>
-          {isSubmitting
-            ? 'Registrando no AsyncStorage...'
-            : 'Registrar Ocorrência Urbana'}
-        </Text>
-      </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.photoActionBtn}
+                onPress={handlePickFromGallery}
+              >
+                <Ionicons name="images-outline" size={16} color={COLORS.moss} />
+                <Text style={styles.photoActionText}>Galeria</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.photoActionBtn}
+                onPress={() =>
+                  setPhotoUri(CATEGORIES[selectedCategory].defaultPhotoUri)
+                }
+              >
+                <Ionicons
+                  name="refresh-outline"
+                  size={16}
+                  color={COLORS.clay}
+                />
+                <Text style={[styles.photoActionText, { color: COLORS.clay }]}>
+                  Foto Exemplo
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Step 3: Location */}
+        <View style={styles.stepSection}>
+          <Text style={styles.stepLabel}>3. ENDEREÇO & REFERÊNCIA</Text>
+          <View style={styles.locationPresetsGrid}>
+            {PRESET_LOCATIONS.map((loc, idx) => {
+              const active = selectedPresetIdx === idx;
+              return (
+                <TouchableOpacity
+                  key={loc.address}
+                  style={[
+                    styles.locPresetChip,
+                    isSmallPhone && { width: '100%' },
+                    active && styles.locPresetChipActive,
+                  ]}
+                  onPress={() => handleSelectLocationPreset(idx)}
+                >
+                  <Ionicons
+                    name="location-outline"
+                    size={14}
+                    color={active ? COLORS.cream : COLORS.moss}
+                  />
+                  <Text
+                    style={[
+                      styles.locPresetText,
+                      active && { color: COLORS.cream },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {loc.address.split('—')[0].trim()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Rua e Número</Text>
+            <TextInput
+              style={styles.textInput}
+              value={customAddress}
+              onChangeText={setCustomAddress}
+              placeholder="Ex: Rua das Figueiras, 240"
+              placeholderTextColor={COLORS.charcoalMuted}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Ponto de Referência</Text>
+            <TextInput
+              style={styles.textInput}
+              value={customReference}
+              onChangeText={setCustomReference}
+              placeholder="Ex: Próximo à praça ou esquina"
+              placeholderTextColor={COLORS.charcoalMuted}
+            />
+          </View>
+        </View>
+
+        {/* Step 4: Details */}
+        <View style={styles.stepSection}>
+          <Text style={styles.stepLabel}>4. O QUE ESTÁ ACONTECENDO?</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Título Resumido</Text>
+            <TextInput
+              style={styles.textInput}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Descreva brevemente o problema"
+              placeholderTextColor={COLORS.charcoalMuted}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Observações</Text>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              placeholder="Informe detalhes que ajudem a equipe de manutenção..."
+              placeholderTextColor={COLORS.charcoalMuted}
+            />
+          </View>
+        </View>
+
+        {/* Submit CTA */}
+        <TouchableOpacity
+          style={styles.submitButton}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+          activeOpacity={0.86}
+        >
+          <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.cream} />
+          <Text style={styles.submitButtonText}>
+            {isSubmitting ? 'Enviando...' : 'Enviar Chamado'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 };
@@ -381,12 +397,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cream,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 120,
+    paddingVertical: 16,
+    paddingBottom: 64,
+  },
+  centerColumn: {
+    width: '100%',
+    maxWidth: 780,
+    alignSelf: 'center',
   },
   headerBox: {
     backgroundColor: COLORS.creamElevated,
-    borderRadius: RADII.xxl,
+    borderRadius: RADII.lg,
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.creamBorder,
@@ -402,15 +423,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: FONTS.sansBold,
-    fontSize: 24,
+    fontSize: 23,
     fontWeight: '800',
     color: COLORS.charcoal,
     marginTop: 2,
-  },
-  headerTitleItalic: {
-    fontFamily: FONTS.serifItalic,
-    fontStyle: 'italic',
-    color: COLORS.moss,
   },
   headerSub: {
     fontFamily: FONTS.sansRegular,
@@ -436,29 +452,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   categoryCard: {
-    width: '48%',
-    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: COLORS.creamElevated,
-    borderRadius: RADII.lg,
-    padding: 14,
+    borderRadius: RADII.md,
+    padding: 13,
     borderWidth: 1,
     borderColor: COLORS.creamBorder,
+    gap: 10,
   },
   categoryCardActive: {
     backgroundColor: COLORS.moss,
-    borderColor: COLORS.moss,
-  },
-  categoryCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  categoryCode: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
-    color: COLORS.clay,
-    fontWeight: '700',
+    borderColor: COLORS.mossDark,
   },
   categoryName: {
     fontFamily: FONTS.sansBold,
@@ -468,15 +473,15 @@ const styles = StyleSheet.create({
   },
   photoCard: {
     backgroundColor: COLORS.creamElevated,
-    borderRadius: RADII.xl,
+    borderRadius: RADII.lg,
     padding: 12,
     borderWidth: 1,
     borderColor: COLORS.creamBorder,
   },
   photoPreview: {
     width: '100%',
-    height: 170,
-    borderRadius: RADII.lg,
+    height: 180,
+    borderRadius: RADII.md,
     backgroundColor: COLORS.creamSubtle,
     marginBottom: 10,
   },
@@ -489,9 +494,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.creamSubtle,
+    backgroundColor: COLORS.cream,
+    borderWidth: 1,
+    borderColor: COLORS.creamBorder,
     paddingVertical: 10,
-    borderRadius: RADII.pill,
+    borderRadius: RADII.sm,
     gap: 6,
   },
   photoActionText: {
@@ -500,24 +507,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.moss,
   },
-  locationPresetsRow: {
+  locationPresetsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
-    paddingBottom: 12,
+    marginBottom: 12,
   },
   locPresetChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.creamElevated,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: RADII.pill,
+    paddingVertical: 9,
+    borderRadius: RADII.sm,
     borderWidth: 1,
     borderColor: COLORS.creamBorder,
     gap: 6,
   },
   locPresetChipActive: {
     backgroundColor: COLORS.moss,
-    borderColor: COLORS.moss,
+    borderColor: COLORS.mossDark,
   },
   locPresetText: {
     fontFamily: FONTS.sansBold,
@@ -549,30 +558,14 @@ const styles = StyleSheet.create({
     minHeight: 86,
     textAlignVertical: 'top',
   },
-  gpsStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.charcoal,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: RADII.md,
-    gap: 8,
-  },
-  gpsStripText: {
-    fontFamily: FONTS.mono,
-    fontSize: 11,
-    color: COLORS.cream,
-    fontWeight: '600',
-  },
   submitButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.clay,
-    paddingVertical: 16,
-    borderRadius: RADII.pill,
+    backgroundColor: COLORS.moss,
+    paddingVertical: 15,
+    borderRadius: RADII.md,
     gap: 8,
-    ...SHADOWS.clayGlow,
   },
   submitButtonText: {
     fontFamily: FONTS.sansBold,

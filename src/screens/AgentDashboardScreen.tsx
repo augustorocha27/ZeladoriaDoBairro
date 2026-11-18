@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { OccurrenceCard } from '../components/OccurrenceCard';
+import { OccurrenceDetailModal } from '../components/OccurrenceDetailModal';
 import { CATEGORIES, STATUS_META, STATUS_ORDER } from '../data/mockData';
 import { useIoT } from '../contexts/IoTContext';
 import { useOccurrences } from '../contexts/OccurrencesContext';
 import { COLORS, FONTS, RADII } from '../theme/theme';
+import { useResponsive } from '../theme/useResponsive';
 import { Occurrence, OccurrenceStatus } from '../types';
 
 interface AgentDashboardScreenProps {
@@ -51,6 +53,7 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
     restoreNormalPoleOperation,
     triggerNightFailureSimulation,
   } = useIoT();
+  const { isDesktop, isMobile, isSmallPhone, pagePadding } = useResponsive();
 
   const [statusFilter, setStatusFilter] = useState<
     OccurrenceStatus | 'ALL' | 'IOT_ONLY'
@@ -58,6 +61,7 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<
     string | null
   >(null);
+  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [customNote, setCustomNote] = useState('');
 
   const filteredQueue = useMemo(() => {
@@ -68,7 +72,6 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
     return occurrences.filter((o) => o.status === statusFilter);
   }, [occurrences, statusFilter]);
 
-  // Keep a valid occurrence selected in the right-hand inspector
   useEffect(() => {
     if (
       !selectedOccurrenceId ||
@@ -82,7 +85,6 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
     }
   }, [occurrences, selectedOccurrenceId, activeIoTOccurrence]);
 
-  // Automatically focus the new IoT occurrence when triggered
   useEffect(() => {
     if (activeIoTOccurrence) {
       setSelectedOccurrenceId(activeIoTOccurrence.id);
@@ -108,6 +110,13 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
     };
   }, [occurrences]);
 
+  const handleSelectCard = (occ: Occurrence) => {
+    setSelectedOccurrenceId(occ.id);
+    if (!isDesktop) {
+      setIsMobileModalOpen(true);
+    }
+  };
+
   const handleStatusDispatch = async (
     occurrenceId: string,
     nextStatus: OccurrenceStatus,
@@ -118,7 +127,6 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
     await updateOccurrenceStatus(occurrenceId, nextStatus, noteToUse);
     setCustomNote('');
 
-    // If Agent marks the Smart Streetlight occurrence as RESOLVIDA, restore hardware
     if (target?.origin === 'IOT_AUTO' && nextStatus === 'RESOLVIDA') {
       await restoreNormalPoleOperation();
     }
@@ -127,34 +135,63 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: pagePadding },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Engineering Command Header (Sharp Charcoal Console) */}
-        <View style={styles.commandBar}>
-          <View style={styles.commandTopRow}>
+        {/* Top Engineering Command Header */}
+        <View
+          style={[
+            styles.commandBar,
+            isSmallPhone && { padding: 14 },
+          ]}
+        >
+          <View
+            style={[
+              styles.commandTopRow,
+              isMobile && { flexDirection: 'column', alignItems: 'flex-start' },
+            ]}
+          >
             <View>
               <Text style={styles.commandKickerMono}>
                 MESA DE DESPACHO OPERACIONAL // ENGENHARIA MUNICIPAL
               </Text>
-              <Text style={styles.commandTitle}>
+              <Text
+                style={[
+                  styles.commandTitle,
+                  isSmallPhone && { fontSize: 18 },
+                ]}
+              >
                 Fila de Ordens de Serviço & Telemetria IoT
               </Text>
             </View>
 
-            <View style={styles.commandActionsRight}>
+            <View
+              style={[
+                styles.commandActionsRight,
+                isMobile && { width: '100%' },
+              ]}
+            >
               <TouchableOpacity
-                style={styles.simulateIoTBtn}
+                style={[
+                  styles.simulateIoTBtn,
+                  isMobile && { flex: 1, justifyContent: 'center' },
+                ]}
                 onPress={triggerNightFailureSimulation}
               >
                 <Ionicons name="flash" size={13} color={COLORS.cream} />
                 <Text style={styles.simulateIoTBtnText}>
-                  DISPARAR FALHA POSTE IoT
+                  DISPARAR FALHA IoT
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.resetDemoBtn}
+                style={[
+                  styles.resetDemoBtn,
+                  isMobile && { flex: 1, justifyContent: 'center' },
+                ]}
                 onPress={resetOccurrencesData}
               >
                 <Ionicons name="refresh" size={13} color={COLORS.cream} />
@@ -163,18 +200,23 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
             </View>
           </View>
 
-          {/* 5-Column Architectural Filter & SLA Matrix */}
+          {/* Responsive Filter & SLA Matrix (2-col on phone, 3-col on tablet, 6-col on desktop) */}
           <View style={styles.kpiMatrixRow}>
             <TouchableOpacity
               style={[
                 styles.kpiCell,
+                isMobile
+                  ? { width: '48%', flexGrow: 1 }
+                  : { flex: 1, minWidth: 140 },
                 statusFilter === 'ALL' && styles.kpiCellActive,
               ]}
               onPress={() => setStatusFilter('ALL')}
             >
               <Text style={styles.kpiCellCode}>[00] FILA TOTAL</Text>
               <Text style={styles.kpiCellNumber}>{occurrences.length}</Text>
-              <Text style={styles.kpiCellSub}>Todos os chamados</Text>
+              <Text style={styles.kpiCellSub} numberOfLines={1}>
+                Todos os chamados
+              </Text>
             </TouchableOpacity>
 
             {STATUS_ORDER.map((st, idx) => {
@@ -185,6 +227,9 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
                   key={st}
                   style={[
                     styles.kpiCell,
+                    isMobile
+                      ? { width: '48%', flexGrow: 1 }
+                      : { flex: 1, minWidth: 140 },
                     active && styles.kpiCellActive,
                     { borderTopWidth: 3, borderTopColor: meta.color },
                   ]}
@@ -206,6 +251,9 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
             <TouchableOpacity
               style={[
                 styles.kpiCell,
+                isMobile
+                  ? { width: '48%', flexGrow: 1 }
+                  : { flex: 1, minWidth: 140 },
                 statusFilter === 'IOT_ONLY' && styles.kpiCellActive,
                 { borderTopWidth: 3, borderTopColor: COLORS.clayLight },
               ]}
@@ -219,12 +267,14 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
                 [IoT] AUTÔNOMOS
               </Text>
               <Text style={styles.kpiCellNumber}>{counts.IOT}</Text>
-              <Text style={styles.kpiCellSub}>Sensores de iluminação</Text>
+              <Text style={styles.kpiCellSub} numberOfLines={1}>
+                Sensores de iluminação
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Master-Detail Split Workbench */}
+        {/* Master-Detail Split Workbench on Desktop / Direct Queue + Modal on Mobile & Tablet */}
         <View style={styles.workbenchGrid}>
           {/* =============================================================== */}
           {/* LEFT PANE: SERVICE ORDER QUEUE LIST                             */}
@@ -235,20 +285,23 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
                 FILA DE PRIORIDADE ({filteredQueue.length} ORDENS)
               </Text>
               <Text style={styles.paneHeaderHint}>
-                Clique em um chamado para inspecionar ao lado
+                {isDesktop
+                  ? 'Clique para inspecionar ao lado'
+                  : 'Toque no chamado para abrir o despacho'}
               </Text>
             </View>
 
             {activeIoTOccurrence && (
               <TouchableOpacity
                 style={styles.priorityIoTCallout}
-                onPress={() => setSelectedOccurrenceId(activeIoTOccurrence.id)}
+                onPress={() => handleSelectCard(activeIoTOccurrence)}
               >
                 <View style={styles.priorityIoTTop}>
                   <View style={styles.priorityBadgeBox}>
                     <Ionicons name="warning" size={12} color={COLORS.cream} />
                     <Text style={styles.priorityBadgeText}>
-                      URGENTE // SENSOR IoT POSTE #{activeIoTOccurrence.iotMetadata?.poleId}
+                      URGENTE // SENSOR IoT POSTE #
+                      {activeIoTOccurrence.iotMetadata?.poleId}
                     </Text>
                   </View>
                   <Text style={styles.priorityProtocolMono}>
@@ -261,7 +314,7 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
                 <Text style={styles.prioritySub}>
                   Status atual:{' '}
                   {STATUS_META[activeIoTOccurrence.status].label.toUpperCase()}{' '}
-                  — Clique para despachar equipe elétrica.
+                  — Toque para despachar equipe elétrica.
                 </Text>
               </TouchableOpacity>
             )}
@@ -286,8 +339,8 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
                   key={occ.id}
                   occurrence={occ}
                   isAgentView={true}
-                  isSelected={inspectedOccurrence?.id === occ.id}
-                  onPressDetail={(o) => setSelectedOccurrenceId(o.id)}
+                  isSelected={isDesktop && inspectedOccurrence?.id === occ.id}
+                  onPressDetail={handleSelectCard}
                   onQuickStatusChange={(id, nextSt) =>
                     handleStatusDispatch(id, nextSt)
                   }
@@ -297,258 +350,262 @@ export const AgentDashboardScreen: React.FC<AgentDashboardScreenProps> = ({
           </View>
 
           {/* =============================================================== */}
-          {/* RIGHT PANE: PERSISTENT TECHNICAL INSPECTOR & DISPATCH PANEL     */}
+          {/* RIGHT PANE (Desktop Only): PERSISTENT TECHNICAL INSPECTOR       */}
           {/* =============================================================== */}
-          <View style={styles.inspectorCol}>
-            {inspectedOccurrence ? (
-              <View style={styles.inspectorPanel}>
-                {/* Inspector Top Header */}
-                <View style={styles.inspectorHeader}>
-                  <View>
-                    <Text style={styles.inspectorProtocolMono}>
-                      PRONTUÁRIO TÉCNICO // #{inspectedOccurrence.protocol}
-                    </Text>
-                    <Text style={styles.inspectorMainTitle}>
-                      {inspectedOccurrence.title}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.inspectorStatusTag,
-                      {
-                        backgroundColor:
-                          STATUS_META[inspectedOccurrence.status].color,
-                      },
-                    ]}
-                  >
-                    <Text style={styles.inspectorStatusTagText}>
-                      {STATUS_META[
-                        inspectedOccurrence.status
-                      ].label.toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Evidence Photo & Location Metadata */}
-                <View style={styles.inspectorMediaRow}>
-                  <Image
-                    source={{ uri: inspectedOccurrence.photoUri }}
-                    style={styles.inspectorPhoto}
-                  />
-                  <View style={styles.inspectorMetaTable}>
-                    <View style={styles.metaRowItem}>
-                      <Text style={styles.metaKeyMono}>CATEGORIA:</Text>
-                      <Text style={styles.metaValText}>
-                        [{CATEGORIES[inspectedOccurrence.category].code}]{' '}
-                        {CATEGORIES[inspectedOccurrence.category].shortLabel}
+          {isDesktop && (
+            <View style={styles.inspectorCol}>
+              {inspectedOccurrence ? (
+                <View style={styles.inspectorPanel}>
+                  <View style={styles.inspectorHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inspectorProtocolMono}>
+                        PRONTUÁRIO TÉCNICO // #{inspectedOccurrence.protocol}
+                      </Text>
+                      <Text style={styles.inspectorMainTitle}>
+                        {inspectedOccurrence.title}
                       </Text>
                     </View>
-                    <View style={styles.metaRowItem}>
-                      <Text style={styles.metaKeyMono}>ORIGEM:</Text>
-                      <Text style={styles.metaValText}>
-                        {inspectedOccurrence.origin === 'IOT_AUTO'
-                          ? 'Disparo Autônomo IoT'
-                          : `Cidadão (${inspectedOccurrence.reporterName})`}
-                      </Text>
-                    </View>
-                    <View style={styles.metaRowItem}>
-                      <Text style={styles.metaKeyMono}>ENDEREÇO:</Text>
-                      <Text style={styles.metaValText}>
-                        {inspectedOccurrence.location.address}
-                      </Text>
-                    </View>
-                    <View style={styles.metaRowItem}>
-                      <Text style={styles.metaKeyMono}>COORDENADAS:</Text>
-                      <Text style={styles.metaValMono}>
-                        {inspectedOccurrence.location.coordinates}
+                    <View
+                      style={[
+                        styles.inspectorStatusTag,
+                        {
+                          backgroundColor:
+                            STATUS_META[inspectedOccurrence.status].color,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.inspectorStatusTagText}>
+                        {STATUS_META[
+                          inspectedOccurrence.status
+                        ].label.toUpperCase()}
                       </Text>
                     </View>
                   </View>
-                </View>
 
-                <Text style={styles.inspectorDescription}>
-                  {inspectedOccurrence.description}
-                </Text>
-
-                {/* IoT Diagnostic Box (if origin === IOT_AUTO) */}
-                {inspectedOccurrence.origin === 'IOT_AUTO' &&
-                  inspectedOccurrence.iotMetadata && (
-                    <View style={styles.iotDiagBox}>
-                      <View style={styles.iotDiagHeader}>
-                        <Text style={styles.iotDiagTitle}>
-                          TELEMETRIA DO POSTE INTELIGENTE #
-                          {inspectedOccurrence.iotMetadata.poleId}
+                  <View style={styles.inspectorMediaRow}>
+                    <Image
+                      source={{ uri: inspectedOccurrence.photoUri }}
+                      style={styles.inspectorPhoto}
+                    />
+                    <View style={styles.inspectorMetaTable}>
+                      <View style={styles.metaRowItem}>
+                        <Text style={styles.metaKeyMono}>CATEGORIA:</Text>
+                        <Text style={styles.metaValText}>
+                          [{CATEGORIES[inspectedOccurrence.category].code}]{' '}
+                          {CATEGORIES[inspectedOccurrence.category].shortLabel}
                         </Text>
-                        <TouchableOpacity onPress={onNavigateIoTSimulator}>
-                          <Text style={styles.iotDiagLink}>
-                            ABRIR SIMULADOR IoT →
-                          </Text>
-                        </TouchableOpacity>
                       </View>
-                      <View style={styles.iotDiagGrid}>
-                        <View style={styles.iotDiagCell}>
-                          <Text style={styles.iotDiagLabel}>FOTOCÉLULA</Text>
-                          <Text style={styles.iotDiagValue}>
-                            {inspectedOccurrence.iotMetadata.ambientLux} lx
-                            (Escuro)
-                          </Text>
-                        </View>
-                        <View style={styles.iotDiagCell}>
-                          <Text style={styles.iotDiagLabel}>TENSÃO REDE</Text>
-                          <Text style={styles.iotDiagValue}>
-                            {inspectedOccurrence.iotMetadata.voltageV} V
-                          </Text>
-                        </View>
-                        <View style={styles.iotDiagCell}>
-                          <Text style={styles.iotDiagLabel}>POTÊNCIA LED</Text>
-                          <Text
-                            style={[
-                              styles.iotDiagValue,
-                              { color: COLORS.clayLight },
-                            ]}
-                          >
-                            {inspectedOccurrence.iotMetadata.powerDrawWatts} W
-                            (Apagado)
-                          </Text>
-                        </View>
+                      <View style={styles.metaRowItem}>
+                        <Text style={styles.metaKeyMono}>ORIGEM:</Text>
+                        <Text style={styles.metaValText}>
+                          {inspectedOccurrence.origin === 'IOT_AUTO'
+                            ? 'Disparo Autônomo IoT'
+                            : `Cidadão (${inspectedOccurrence.reporterName})`}
+                        </Text>
+                      </View>
+                      <View style={styles.metaRowItem}>
+                        <Text style={styles.metaKeyMono}>ENDEREÇO:</Text>
+                        <Text style={styles.metaValText}>
+                          {inspectedOccurrence.location.address}
+                        </Text>
+                      </View>
+                      <View style={styles.metaRowItem}>
+                        <Text style={styles.metaKeyMono}>COORDENADAS:</Text>
+                        <Text style={styles.metaValMono}>
+                          {inspectedOccurrence.location.coordinates}
+                        </Text>
                       </View>
                     </View>
-                  )}
+                  </View>
 
-                {/* ========================================================= */}
-                {/* AGENT STATUS CONTROL & TECHNICAL NOTE DISPATCH            */}
-                {/* ========================================================= */}
-                <View style={styles.dispatchControlBox}>
-                  <Text style={styles.dispatchSectionTitle}>
-                    ATUALIZAR STATUS DA ORDEM DE SERVIÇO
+                  <Text style={styles.inspectorDescription}>
+                    {inspectedOccurrence.description}
                   </Text>
 
-                  {/* 4 Direct Status Buttons */}
-                  <View style={styles.statusButtonsGrid}>
-                    {STATUS_ORDER.map((st, idx) => {
-                      const meta = STATUS_META[st];
-                      const isCurrent = inspectedOccurrence.status === st;
+                  {inspectedOccurrence.origin === 'IOT_AUTO' &&
+                    inspectedOccurrence.iotMetadata && (
+                      <View style={styles.iotDiagBox}>
+                        <View style={styles.iotDiagHeader}>
+                          <Text style={styles.iotDiagTitle}>
+                            TELEMETRIA DO POSTE INTELIGENTE #
+                            {inspectedOccurrence.iotMetadata.poleId}
+                          </Text>
+                          <TouchableOpacity onPress={onNavigateIoTSimulator}>
+                            <Text style={styles.iotDiagLink}>
+                              ABRIR SIMULADOR IoT →
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.iotDiagGrid}>
+                          <View style={styles.iotDiagCell}>
+                            <Text style={styles.iotDiagLabel}>FOTOCÉLULA</Text>
+                            <Text style={styles.iotDiagValue}>
+                              {inspectedOccurrence.iotMetadata.ambientLux} lx
+                              (Escuro)
+                            </Text>
+                          </View>
+                          <View style={styles.iotDiagCell}>
+                            <Text style={styles.iotDiagLabel}>TENSÃO REDE</Text>
+                            <Text style={styles.iotDiagValue}>
+                              {inspectedOccurrence.iotMetadata.voltageV} V
+                            </Text>
+                          </View>
+                          <View style={styles.iotDiagCell}>
+                            <Text style={styles.iotDiagLabel}>
+                              POTÊNCIA LED
+                            </Text>
+                            <Text
+                              style={[
+                                styles.iotDiagValue,
+                                { color: COLORS.clayLight },
+                              ]}
+                            >
+                              {inspectedOccurrence.iotMetadata.powerDrawWatts} W
+                              (Apagado)
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+
+                  <View style={styles.dispatchControlBox}>
+                    <Text style={styles.dispatchSectionTitle}>
+                      ATUALIZAR STATUS DA ORDEM DE SERVIÇO
+                    </Text>
+
+                    <View style={styles.statusButtonsGrid}>
+                      {STATUS_ORDER.map((st, idx) => {
+                        const meta = STATUS_META[st];
+                        const isCurrent = inspectedOccurrence.status === st;
+                        return (
+                          <TouchableOpacity
+                            key={st}
+                            style={[
+                              styles.statusControlBtn,
+                              isCurrent && {
+                                backgroundColor: meta.color,
+                                borderColor: meta.color,
+                              },
+                            ]}
+                            onPress={() =>
+                              handleStatusDispatch(inspectedOccurrence.id, st)
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.statusControlStepMono,
+                                isCurrent && { color: COLORS.cream },
+                              ]}
+                            >
+                              ETAPA 0{idx + 1}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.statusControlLabel,
+                                isCurrent && { color: COLORS.cream },
+                              ]}
+                            >
+                              {meta.label.toUpperCase()}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={styles.noteInputLabel}>
+                      PARECER TÉCNICO DO AGENTE (OPCIONAL):
+                    </Text>
+                    <TextInput
+                      style={styles.techNoteInput}
+                      value={customNote}
+                      onChangeText={setCustomNote}
+                      placeholder="Digite o despacho da engenharia ou selecione um parecer rápido abaixo..."
+                      placeholderTextColor={COLORS.charcoalMuted}
+                      multiline
+                    />
+
+                    <View style={styles.presetNotesWrap}>
+                      {Object.entries(PRESET_TECH_NOTES).map(([st, notes]) =>
+                        notes.map((n, idx) => (
+                          <TouchableOpacity
+                            key={`${st}-${idx}`}
+                            style={styles.presetNoteChip}
+                            onPress={() =>
+                              handleStatusDispatch(
+                                inspectedOccurrence.id,
+                                st as OccurrenceStatus,
+                                n
+                              )
+                            }
+                          >
+                            <Text style={styles.presetNoteTag}>
+                              [{STATUS_META[st as OccurrenceStatus].label}]
+                            </Text>
+                            <Text
+                              style={styles.presetNoteText}
+                              numberOfLines={1}
+                            >
+                              {n}
+                            </Text>
+                          </TouchableOpacity>
+                        ))
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.historyBlock}>
+                    <Text style={styles.historyBlockTitle}>
+                      HISTÓRICO DE AUDITORIA (
+                      {inspectedOccurrence.history.length} REGISTROS)
+                    </Text>
+                    {inspectedOccurrence.history.map((h) => {
+                      const stMeta = STATUS_META[h.status];
                       return (
-                        <TouchableOpacity
-                          key={st}
+                        <View
+                          key={h.id}
                           style={[
-                            styles.statusControlBtn,
-                            isCurrent && {
-                              backgroundColor: meta.color,
-                              borderColor: meta.color,
-                            },
+                            styles.historyEntryRow,
+                            { borderLeftColor: stMeta.color },
                           ]}
-                          onPress={() =>
-                            handleStatusDispatch(inspectedOccurrence.id, st)
-                          }
                         >
-                          <Text
-                            style={[
-                              styles.statusControlStepMono,
-                              isCurrent && { color: COLORS.cream },
-                            ]}
-                          >
-                            ETAPA 0{idx + 1}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.statusControlLabel,
-                              isCurrent && { color: COLORS.cream },
-                            ]}
-                          >
-                            {meta.label.toUpperCase()}
-                          </Text>
-                        </TouchableOpacity>
+                          <View style={styles.historyEntryHeader}>
+                            <Text
+                              style={[
+                                styles.historyStatusMono,
+                                { color: stMeta.color },
+                              ]}
+                            >
+                              {stMeta.label.toUpperCase()} — {h.actorName}
+                            </Text>
+                            <Text style={styles.historyTimeMono}>
+                              {new Date(h.timestamp).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </Text>
+                          </View>
+                          <Text style={styles.historyNoteText}>{h.note}</Text>
+                        </View>
                       );
                     })}
                   </View>
-
-                  {/* Technical Note Input + Quick Engineering Templates */}
-                  <Text style={styles.noteInputLabel}>
-                    PARECER TÉCNICO DO AGENTE (OPCIONAL):
-                  </Text>
-                  <TextInput
-                    style={styles.techNoteInput}
-                    value={customNote}
-                    onChangeText={setCustomNote}
-                    placeholder="Digite o despacho da engenharia ou selecione um parecer rápido abaixo..."
-                    placeholderTextColor={COLORS.charcoalMuted}
-                    multiline
-                  />
-
-                  <View style={styles.presetNotesWrap}>
-                    {Object.entries(PRESET_TECH_NOTES).map(([st, notes]) =>
-                      notes.map((n, idx) => (
-                        <TouchableOpacity
-                          key={`${st}-${idx}`}
-                          style={styles.presetNoteChip}
-                          onPress={() =>
-                            handleStatusDispatch(
-                              inspectedOccurrence.id,
-                              st as OccurrenceStatus,
-                              n
-                            )
-                          }
-                        >
-                          <Text style={styles.presetNoteTag}>
-                            [{STATUS_META[st as OccurrenceStatus].label}]
-                          </Text>
-                          <Text
-                            style={styles.presetNoteText}
-                            numberOfLines={1}
-                          >
-                            {n}
-                          </Text>
-                        </TouchableOpacity>
-                      ))
-                    )}
-                  </View>
                 </View>
-
-                {/* Audit History Log */}
-                <View style={styles.historyBlock}>
-                  <Text style={styles.historyBlockTitle}>
-                    HISTÓRICO DE AUDITORIA ({inspectedOccurrence.history.length}{' '}
-                    REGISTROS)
-                  </Text>
-                  {inspectedOccurrence.history.map((h) => {
-                    const stMeta = STATUS_META[h.status];
-                    return (
-                      <View
-                        key={h.id}
-                        style={[
-                          styles.historyEntryRow,
-                          { borderLeftColor: stMeta.color },
-                        ]}
-                      >
-                        <View style={styles.historyEntryHeader}>
-                          <Text
-                            style={[
-                              styles.historyStatusMono,
-                              { color: stMeta.color },
-                            ]}
-                          >
-                            {stMeta.label.toUpperCase()} — {h.actorName}
-                          </Text>
-                          <Text style={styles.historyTimeMono}>
-                            {new Date(h.timestamp).toLocaleString('pt-BR', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </Text>
-                        </View>
-                        <Text style={styles.historyNoteText}>{h.note}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            ) : null}
-          </View>
+              ) : null}
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      {/* Mobile & Tablet Modal Inspector */}
+      <OccurrenceDetailModal
+        occurrence={inspectedOccurrence}
+        visible={!isDesktop && isMobileModalOpen && !!inspectedOccurrence}
+        isAgent={true}
+        onClose={() => setIsMobileModalOpen(false)}
+        onUpdateStatus={handleStatusDispatch}
+      />
     </View>
   );
 };
@@ -562,7 +619,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 1380,
     alignSelf: 'center',
-    padding: 18,
+    paddingVertical: 16,
     paddingBottom: 64,
   },
   commandBar: {
@@ -575,7 +632,6 @@ const styles = StyleSheet.create({
   },
   commandTopRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
@@ -590,7 +646,7 @@ const styles = StyleSheet.create({
   },
   commandTitle: {
     fontFamily: FONTS.sansBold,
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: '800',
     color: COLORS.cream,
     marginTop: 2,
@@ -605,7 +661,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.clay,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: RADII.sm,
     gap: 6,
   },
@@ -622,7 +678,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.charcoalBorder,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: RADII.sm,
     gap: 6,
   },
@@ -638,13 +694,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   kpiCell: {
-    flex: 1,
-    minWidth: 150,
     backgroundColor: COLORS.charcoalElevated,
     borderWidth: 1,
     borderColor: COLORS.charcoalBorder,
     borderRadius: RADII.sm,
-    padding: 12,
+    padding: 11,
   },
   kpiCellActive: {
     backgroundColor: '#2E3430',
@@ -655,11 +709,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: COLORS.cream,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   kpiCellNumber: {
     fontFamily: FONTS.mono,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: COLORS.cream,
   },
@@ -677,7 +731,8 @@ const styles = StyleSheet.create({
   },
   queueCol: {
     flex: 1.05,
-    minWidth: 340,
+    minWidth: 300,
+    width: '100%',
   },
   inspectorCol: {
     flex: 1.15,
@@ -685,8 +740,10 @@ const styles = StyleSheet.create({
   },
   paneHeaderRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
     marginBottom: 10,
   },
   paneHeaderTitle: {
@@ -710,8 +767,10 @@ const styles = StyleSheet.create({
   },
   priorityIoTTop: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
     marginBottom: 6,
   },
   priorityBadgeBox: {
@@ -802,7 +861,6 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '800',
     color: COLORS.charcoal,
-    maxWidth: 460,
   },
   inspectorStatusTag: {
     paddingHorizontal: 10,

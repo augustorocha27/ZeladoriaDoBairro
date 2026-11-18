@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { CATEGORIES, STATUS_META, STATUS_ORDER } from '../data/mockData';
 import { COLORS, FONTS, RADII } from '../theme/theme';
+import { useResponsive } from '../theme/useResponsive';
 import { Occurrence, OccurrenceStatus } from '../types';
 
 interface OccurrenceCardProps {
@@ -22,6 +23,13 @@ interface OccurrenceCardProps {
   ) => void;
 }
 
+const COMPACT_STEP_LABELS: Record<OccurrenceStatus, string> = {
+  ABERTA: 'Aberta',
+  EM_ANALISE: 'Análise',
+  EM_ANDAMENTO: 'Andamento',
+  RESOLVIDA: 'Resolvida',
+};
+
 export const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
   occurrence,
   isAgentView = false,
@@ -29,6 +37,7 @@ export const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
   onPressDetail,
   onQuickStatusChange,
 }) => {
+  const { isMobile, isSmallPhone } = useResponsive();
   const category = CATEGORIES[occurrence.category];
   const status = STATUS_META[occurrence.status];
   const isIoT = occurrence.origin === 'IOT_AUTO';
@@ -53,6 +62,7 @@ export const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
     <TouchableOpacity
       style={[
         styles.card,
+        isSmallPhone && { padding: 12 },
         { borderLeftColor: status.color },
         isIoT && styles.cardIoT,
         isSelected && styles.cardSelected,
@@ -60,19 +70,35 @@ export const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
       onPress={() => onPressDetail(occurrence)}
       activeOpacity={0.88}
     >
-      {/* Top Technical Row: Origin + Protocol + Status Tag */}
+      {/* Top Row: Category / Origin + Status Badge */}
       <View style={styles.topRow}>
         <View style={styles.badgesLeft}>
-          {isIoT ? (
-            <View style={styles.iotTag}>
-              <Ionicons name="hardware-chip" size={11} color={COLORS.cream} />
-              <Text style={styles.iotTagText}>SENSOR IoT AUTÔNOMO</Text>
-            </View>
-          ) : (
-            <View style={styles.citizenTag}>
-              <Text style={styles.citizenTagText}>RELATO DO MORADOR</Text>
-            </View>
-          )}
+          <View
+            style={[
+              styles.categoryBadge,
+              isIoT && { backgroundColor: COLORS.clay },
+            ]}
+          >
+            <Ionicons
+              name={
+                isIoT ? 'hardware-chip-outline' : (category.iconName as any)
+              }
+              size={13}
+              color={isIoT ? COLORS.cream : COLORS.moss}
+            />
+            <Text
+              style={[
+                styles.categoryBadgeText,
+                isIoT && { color: COLORS.cream },
+              ]}
+            >
+              {isIoT
+                ? isSmallPhone
+                  ? 'Poste IoT'
+                  : 'Poste Inteligente (Auto)'
+                : category.shortLabel}
+            </Text>
+          </View>
           <Text style={styles.protocolText}>#{occurrence.protocol}</Text>
         </View>
 
@@ -83,112 +109,116 @@ export const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
           ]}
         >
           <View
-            style={[styles.statusSquare, { backgroundColor: status.color }]}
+            style={[styles.statusDot, { backgroundColor: status.color }]}
           />
           <Text style={[styles.statusText, { color: status.color }]}>
-            {status.step}/4 • {status.label.toUpperCase()}
+            {status.label}
           </Text>
         </View>
       </View>
 
-      {/* Main Content Row */}
+      {/* Main Content: Photo + Title + Street */}
       <View style={styles.bodyRow}>
         <Image
           source={{ uri: occurrence.photoUri }}
-          style={styles.thumbnail}
+          style={[
+            styles.thumbnail,
+            isSmallPhone && { width: 68, height: 64 },
+          ]}
         />
         <View style={styles.infoColumn}>
-          <View style={styles.categoryRow}>
-            <Text style={styles.categoryCode}>[{category.code}]</Text>
-            <Text style={styles.categoryLabel}>{category.label}</Text>
-          </View>
-          <Text style={styles.title} numberOfLines={2}>
+          <Text
+            style={[styles.title, isSmallPhone && { fontSize: 14, lineHeight: 19 }]}
+            numberOfLines={2}
+          >
             {occurrence.title}
           </Text>
           <View style={styles.locationRow}>
-            <Ionicons name="location-sharp" size={12} color={COLORS.clay} />
+            <Ionicons name="location-outline" size={14} color={COLORS.clay} />
             <Text style={styles.locationText} numberOfLines={1}>
-              {occurrence.location.address} ({occurrence.location.coordinates})
+              {occurrence.location.address}
             </Text>
           </View>
-        </View>
-      </View>
-
-      {/* IoT Telemetry Diagnostic Strip */}
-      {isIoT && occurrence.iotMetadata && (
-        <View style={styles.telemetryStrip}>
-          <Ionicons name="pulse" size={13} color={COLORS.clayLight} />
-          <Text style={styles.telemetryStripText}>
-            NÓ #{occurrence.iotMetadata.poleId} | LUMINOSIDADE:{' '}
-            {occurrence.iotMetadata.ambientLux} lx (ESCURO) | CONSUMO LED:{' '}
-            {occurrence.iotMetadata.powerDrawWatts}W | DIAG:{' '}
-            {occurrence.iotMetadata.sensorDiagnosticCode}
+          <Text style={styles.referenceText} numberOfLines={1}>
+            {occurrence.location.reference}
           </Text>
         </View>
-      )}
-
-      {/* 4-Stage Architectural Pipeline */}
-      <View style={styles.pipelineTrack}>
-        {STATUS_ORDER.map((stepStatus, idx) => {
-          const stepMeta = STATUS_META[stepStatus];
-          const isCompleted = status.step >= stepMeta.step;
-          const isCurrent = occurrence.status === stepStatus;
-          return (
-            <View key={stepStatus} style={styles.pipelineStepWrapper}>
-              <View
-                style={[
-                  styles.pipelineBar,
-                  isCompleted
-                    ? { backgroundColor: status.color }
-                    : { backgroundColor: COLORS.creamSubtle },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.pipelineStepLabel,
-                  isCurrent && {
-                    color: status.color,
-                    fontWeight: '700',
-                  },
-                ]}
-              >
-                0{idx + 1} {stepMeta.label.toUpperCase()}
-              </Text>
-            </View>
-          );
-        })}
       </View>
 
-      {/* Footer Note & Action */}
-      <View style={styles.footerRow}>
-        <View style={{ flex: 1, marginRight: 10 }}>
+      {/* Simple 4-Step Progress Bar */}
+      <View style={styles.stepsContainer}>
+        <View style={styles.stepsTrack}>
+          {STATUS_ORDER.map((stepStatus, idx) => {
+            const stepMeta = STATUS_META[stepStatus];
+            const isCompleted = status.step >= stepMeta.step;
+            const isCurrent = occurrence.status === stepStatus;
+            const displayLabel = isMobile
+              ? COMPACT_STEP_LABELS[stepStatus]
+              : stepMeta.label;
+
+            return (
+              <View key={stepStatus} style={styles.stepCol}>
+                <View
+                  style={[
+                    styles.stepBar,
+                    isCompleted
+                      ? { backgroundColor: status.color }
+                      : { backgroundColor: COLORS.creamSubtle },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.stepLabel,
+                    isSmallPhone && { fontSize: 10 },
+                    isCurrent && {
+                      color: status.color,
+                      fontWeight: '700',
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {idx + 1}. {displayLabel}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Latest Update Note & Action Footer */}
+      <View
+        style={[
+          styles.footerRow,
+          isSmallPhone && styles.footerRowStacked,
+        ]}
+      >
+        <View style={{ flex: 1 }}>
           {latestHistory && (
-            <Text style={styles.latestNote} numberOfLines={1}>
-              <Text style={styles.latestActorMono}>
-                [{latestHistory.actorName}]:{' '}
-              </Text>
+            <Text style={styles.latestNote} numberOfLines={2}>
+              <Text style={styles.latestActor}>Última atualização: </Text>
               {latestHistory.note}
             </Text>
           )}
-          <Text style={styles.timestampText}>
-            ÚLTIMA ATUALIZAÇÃO: {formattedDate}
-          </Text>
+          <Text style={styles.timestampText}>Atualizado em {formattedDate}</Text>
         </View>
 
         {isAgentView && nextStatus && onQuickStatusChange ? (
           <TouchableOpacity
-            style={styles.agentAdvanceBtn}
+            style={[
+              styles.agentAdvanceBtn,
+              isSmallPhone && { alignSelf: 'stretch', alignItems: 'center' },
+            ]}
             onPress={() => onQuickStatusChange(occurrence.id, nextStatus)}
             activeOpacity={0.85}
           >
             <Text style={styles.agentAdvanceBtnText}>
-              AVANÇAR → {STATUS_META[nextStatus].label.toUpperCase()}
+              Mudar p/ {STATUS_META[nextStatus].label} →
             </Text>
           </TouchableOpacity>
         ) : (
-          <View style={styles.detailPrompt}>
-            <Text style={styles.detailPromptText}>PRONTUÁRIO</Text>
-            <Ionicons name="arrow-forward" size={12} color={COLORS.moss} />
+          <View style={styles.detailBtn}>
+            <Text style={styles.detailBtnText}>Ver histórico</Text>
+            <Ionicons name="chevron-forward" size={14} color={COLORS.moss} />
           </View>
         )}
       </View>
@@ -199,16 +229,16 @@ export const OccurrenceCard: React.FC<OccurrenceCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.creamElevated,
-    borderRadius: RADII.sm,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: RADII.md,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.creamBorder,
     borderLeftWidth: 4,
   },
   cardIoT: {
     backgroundColor: '#FCF8F6',
-    borderColor: 'rgba(204, 88, 51, 0.45)',
+    borderColor: 'rgba(204, 88, 51, 0.4)',
   },
   cardSelected: {
     borderColor: COLORS.charcoal,
@@ -218,75 +248,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   badgesLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  iotTag: {
+  categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.clay,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: RADII.sm,
-    gap: 4,
-  },
-  iotTagText: {
-    color: COLORS.cream,
-    fontFamily: FONTS.mono,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  citizenTag: {
     backgroundColor: COLORS.mossMuted,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: RADII.sm,
+    gap: 5,
   },
-  citizenTagText: {
+  categoryBadgeText: {
     color: COLORS.moss,
-    fontFamily: FONTS.mono,
-    fontSize: 9,
+    fontFamily: FONTS.sansBold,
+    fontSize: 11,
     fontWeight: '700',
   },
   protocolText: {
     fontFamily: FONTS.mono,
     fontSize: 11,
-    color: COLORS.charcoal,
-    fontWeight: '700',
+    color: COLORS.charcoalMuted,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: RADII.sm,
     borderWidth: 1,
-    gap: 5,
+    gap: 6,
   },
-  statusSquare: {
-    width: 6,
-    height: 6,
-    borderRadius: 1,
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 2,
   },
   statusText: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
+    fontFamily: FONTS.sansBold,
+    fontSize: 12,
     fontWeight: '700',
   },
   bodyRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 10,
+    marginBottom: 14,
   },
   thumbnail: {
-    width: 82,
-    height: 68,
+    width: 84,
+    height: 72,
     borderRadius: RADII.sm,
     backgroundColor: COLORS.creamSubtle,
   },
@@ -294,32 +312,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  categoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 2,
-  },
-  categoryCode: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
-    color: COLORS.clay,
-    fontWeight: '700',
-  },
-  categoryLabel: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
-    color: COLORS.moss,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
   title: {
     fontFamily: FONTS.sansBold,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: COLORS.charcoal,
-    lineHeight: 19,
-    marginBottom: 4,
+    lineHeight: 21,
+    marginBottom: 5,
   },
   locationRow: {
     flexDirection: 'row',
@@ -327,96 +326,90 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   locationText: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
+    fontFamily: FONTS.sansBold,
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.charcoal,
+    flex: 1,
+  },
+  referenceText: {
+    fontFamily: FONTS.sansRegular,
+    fontSize: 12,
     color: COLORS.charcoalMuted,
-    flex: 1,
+    marginTop: 2,
   },
-  telemetryStrip: {
+  stepsContainer: {
+    marginBottom: 12,
+  },
+  stepsTrack: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.charcoal,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: RADII.sm,
-    marginBottom: 10,
-    gap: 8,
+    gap: 6,
   },
-  telemetryStripText: {
-    fontFamily: FONTS.mono,
-    fontSize: 9,
-    color: COLORS.cream,
+  stepCol: {
     flex: 1,
   },
-  pipelineTrack: {
-    flexDirection: 'row',
-    gap: 4,
-    marginBottom: 10,
+  stepBar: {
+    height: 5,
+    borderRadius: 2,
+    marginBottom: 4,
   },
-  pipelineStepWrapper: {
-    flex: 1,
-  },
-  pipelineBar: {
-    height: 4,
-    borderRadius: 1,
-    marginBottom: 3,
-  },
-  pipelineStepLabel: {
-    fontFamily: FONTS.mono,
-    fontSize: 8,
+  stepLabel: {
+    fontFamily: FONTS.sansRegular,
+    fontSize: 11,
     color: COLORS.charcoalMuted,
   },
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: COLORS.creamSubtle,
+    gap: 10,
+  },
+  footerRowStacked: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
   },
   latestNote: {
     fontFamily: FONTS.sansRegular,
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.charcoal,
-    marginBottom: 2,
+    lineHeight: 17,
+    marginBottom: 3,
   },
-  latestActorMono: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
+  latestActor: {
+    fontFamily: FONTS.sansBold,
     fontWeight: '700',
     color: COLORS.moss,
   },
   timestampText: {
     fontFamily: FONTS.mono,
-    fontSize: 9,
+    fontSize: 10,
     color: COLORS.charcoalMuted,
   },
   agentAdvanceBtn: {
     backgroundColor: COLORS.moss,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: RADII.sm,
   },
   agentAdvanceBtnText: {
     color: COLORS.cream,
-    fontFamily: FONTS.mono,
-    fontSize: 10,
+    fontFamily: FONTS.sansBold,
+    fontSize: 12,
     fontWeight: '700',
   },
-  detailPrompt: {
+  detailBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderColor: COLORS.creamBorder,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: RADII.sm,
-    backgroundColor: COLORS.cream,
+    gap: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
   },
-  detailPromptText: {
-    fontFamily: FONTS.mono,
-    fontSize: 9,
+  detailBtnText: {
+    fontFamily: FONTS.sansBold,
+    fontSize: 12,
     color: COLORS.moss,
     fontWeight: '700',
   },
